@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { INITIAL_MEMBERS, INITIAL_COMPETITIONS } from '../constants';
 import { Fight, User, Competition } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Shield, AlertTriangle, Plus, Trash2, Globe, RefreshCw, Eye } from 'lucide-react';
+import { Shield, AlertTriangle, Plus, Trash2, Globe, RefreshCw, Eye, Settings, CloudDownload, Key, LogIn, AlertCircle, Users } from 'lucide-react';
+import { getActiveCompetitions, getCompetitionMatches, getCompetitionRegistrations, loginFFKMDA } from '../services/ffkmda';
 
 interface TournamentProps {
   currentUser: User;
@@ -11,112 +12,251 @@ interface TournamentProps {
 const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
   
-  // Par défaut, le staff voit la gestion, les autres voient la timeline
+  // --- STATE ---
   const [activeTab, setActiveTab] = useState<'GESTION' | 'TIMELINE' | 'PALMARES'>(isStaff ? 'GESTION' : 'TIMELINE');
+  const [competitions, setCompetitions] = useState<Competition[]>(INITIAL_COMPETITIONS);
   const [selectedCompId, setSelectedCompId] = useState(INITIAL_COMPETITIONS[0].id);
   const [fights, setFights] = useState<Fight[]>([
     { id: 'f1', fighterId: '1', fighterName: 'Thomas Anderson', competitionId: 'c1', fightNumber: 10, ring: 'A', helmetColor: 'Rouge', status: 'Pending', opponentName: 'John Doe' },
     { id: 'f2', fighterId: '2', fighterName: 'Sarah Connor', competitionId: 'c1', fightNumber: 12, ring: 'B', helmetColor: 'Bleu', status: 'Pending', opponentName: 'Jane Smith' }
   ]);
+  
+  // FFKMDA Module State
   const [isScanning, setIsScanning] = useState(false);
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const [apiToken, setApiToken] = useState('');
+  const [apiStatus, setApiStatus] = useState<'IDLE' | 'READY' | 'ERROR'>('IDLE');
+  
+  // Login FFKMDA State
+  const [fedEmail, setFedEmail] = useState('0172055');
+  const [fedPass, setFedPass] = useState('CyberaxGundam69*');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Charger la liste complète des membres pour trouver les noms
+  // Competitors Data
   const [competitors, setCompetitors] = useState<User[]>([]);
 
+  // --- INIT ---
   useEffect(() => {
-     // On charge les membres depuis le LocalStorage + Mock
+     // 1. Load Members
      const storedUsers = localStorage.getItem('smg_users');
      const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
-     // Fusionner avec INITIAL_MEMBERS converti en User partiel pour la logique
-     // Ici simplifcation : on prend INITIAL_MEMBERS comme base et on cherche dedans
-     // Dans une vraie app, on aurait une seule source de vérité.
-     
-     // Mock conversion for display
      const mappedInitial = INITIAL_MEMBERS.map(m => ({ id: m.id, name: m.name, category: m.category } as User));
-     setCompetitors([...mappedInitial, ...localUsers].filter(u => u.category === 'Compétiteur' || u.category === 'Pro'));
+     
+     // Merge et filter
+     const allComps = [...mappedInitial, ...localUsers].filter((u, index, self) => 
+        index === self.findIndex((t) => t.id === u.id) && (u.category === 'Compétiteur' || u.category === 'Pro')
+     );
+     setCompetitors(allComps);
+
+     // 2. Load API Token
+     const storedToken = localStorage.getItem('ffkmda_token');
+     if (storedToken) {
+       setApiToken(storedToken);
+       setApiStatus('READY');
+     }
+     
+     // 3. Load Saved Competitions
+     const storedComps = localStorage.getItem('smg_competitions');
+     if (storedComps) {
+       const parsedComps = JSON.parse(storedComps);
+       if (parsedComps.length > 0) {
+           setCompetitions(parsedComps);
+           // Si on a sauvegardé une sélection, on essaie de la restaurer, sinon le premier
+           setSelectedCompId(parsedComps[0].id);
+       }
+     }
   }, []);
 
+  // --- FFKMDA ACTIONS ---
 
-  // --- SIMULATION DU SCRIPT GAS FFKMDA ---
-  const handleAutoScanFFKMDA = () => {
-    setIsScanning(true);
+  const handleFederationLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fedEmail || !fedPass) return alert("Email et mot de passe requis");
+
+    setIsLoggingIn(true);
+    setApiStatus('IDLE');
     
-    // Simulation du délai API
-    setTimeout(() => {
-      // Logique simulée : On récupère des "matchs" depuis l'API FFKMDA fictive
-      // Et on cherche nos compétiteurs dedans.
+    try {
+      const token = await loginFFKMDA(fedEmail, fedPass);
+      setApiToken(token);
+      localStorage.setItem('ffkmda_token', token);
+      setApiStatus('READY');
+      alert("Connexion réussie ! Token récupéré.");
+    } catch (error: any) {
+      console.error(error);
+      setApiStatus('ERROR');
       
-      const MOCK_API_RESULTS = [
-        { 
-          competitor1: { firstname: 'Thomas', lastname: 'Anderson' },
-          competitor2: { firstname: 'Jean', lastname: 'Michel' },
-          ring: 'A', number: 10, order: 10
-        },
-        { 
-          competitor1: { firstname: 'Pierre', lastname: 'Paul' },
-          competitor2: { firstname: 'Sarah', lastname: 'Connor' },
-          ring: 'B', number: 15, order: 15
-        },
-        { 
-          competitor1: { firstname: 'Inconnu', lastname: 'Au Bataillon' },
-          competitor2: { firstname: 'Autre', lastname: 'Club' },
-          ring: 'C', number: 20, order: 20
-        }
-      ];
+      if (error.message === "ENDPOINT_NOT_FOUND") {
+        alert("Impossible de se connecter automatiquement.\n\nSOLUTION : Collez le token 'Bearer' depuis F12 > Network dans le champ Manuel.");
+      } else if (error.message === "BAD_CREDENTIALS") {
+        alert("Identifiants incorrects.");
+      } else {
+        alert("Erreur réseau.");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
+  const handleSaveTokenManual = () => {
+    const cleanToken = apiToken.replace('Bearer ', '').trim();
+    if (cleanToken.length > 20) {
+      setApiToken(cleanToken);
+      localStorage.setItem('ffkmda_token', cleanToken);
+      setApiStatus('READY');
+      alert('Token API sauvegardé.');
+    } else {
+      alert('Token invalide.');
+    }
+  };
+
+  // Importe la liste des compétitions (ID 900 inclus normalement via fetchAllData)
+  const handleImportCompetitions = async () => {
+    if (apiStatus !== 'READY') return alert("Veuillez d'abord configurer le Token API.");
+    
+    setIsScanning(true);
+    try {
+      const activeComps = await getActiveCompetitions(apiToken);
+      
+      if (activeComps.length > 0) {
+        // Fusion intelligente
+        const merged = [...competitions];
+        let addedCount = 0;
+        
+        activeComps.forEach(newC => {
+          if (!merged.find(c => c.ffkmdaId === newC.ffkmdaId)) {
+            merged.push(newC);
+            addedCount++;
+          }
+        });
+        
+        // Trier par date (plus récent en premier)
+        merged.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        setCompetitions(merged);
+        localStorage.setItem('smg_competitions', JSON.stringify(merged));
+        
+        alert(`${addedCount} nouvelles compétitions trouvées.`);
+        if (merged.length > 0) setSelectedCompId(merged[0].id);
+
+      } else {
+        alert("Aucune compétition trouvée. Vérifiez le token ou la saison.");
+      }
+    } catch (e) {
+      alert("Erreur import compétitions.");
+      setApiStatus('ERROR');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Importe les compétiteurs INSCRITS à la compétition sélectionnée (ex: ID 900)
+  const handleImportCompetitors = async () => {
+    if (apiStatus !== 'READY') return alert("Token requis.");
+    
+    const currentComp = competitions.find(c => c.id === selectedCompId);
+    if (!currentComp || !currentComp.ffkmdaId) {
+      return alert("Sélectionnez une compétition fédérale (ID 900...) dans le menu déroulant.");
+    }
+
+    setIsScanning(true);
+    try {
+        const regs = await getCompetitionRegistrations(currentComp.ffkmdaId, apiToken);
+        
+        if (regs.length > 0) {
+            const newCompetitors = [...competitors];
+            let added = 0;
+
+            regs.forEach((reg: any) => {
+                // On vérifie si le compétiteur existe déjà par nom (approximatif)
+                const exists = newCompetitors.find(c => c.name.toLowerCase() === reg.name.toLowerCase());
+                if (!exists) {
+                    newCompetitors.push(reg);
+                    added++;
+                }
+            });
+
+            setCompetitors(newCompetitors);
+            // On sauvegarde aussi dans le localStorage global des users pour persistance
+            localStorage.setItem('smg_users', JSON.stringify(newCompetitors));
+            
+            alert(`${added} nouveaux compétiteurs importés depuis la compétition ${currentComp.ffkmdaId}.`);
+        } else {
+            alert("Aucun inscrit trouvé pour cette compétition.");
+        }
+    } catch(e) {
+        alert("Erreur lors de la récupération des inscrits.");
+    } finally {
+        setIsScanning(false);
+    }
+  };
+
+  const handleAutoScanMatches = async () => {
+    if (apiStatus !== 'READY') return alert("Token requis.");
+    
+    const currentComp = competitions.find(c => c.id === selectedCompId);
+    if (!currentComp || !currentComp.ffkmdaId) {
+      return alert("Compétition non valide pour le scan.");
+    }
+
+    setIsScanning(true);
+    try {
+      const apiMatches = await getCompetitionMatches(currentComp.ffkmdaId, apiToken);
+      
       const newFights: Fight[] = [];
       let updatesCount = 0;
 
-      MOCK_API_RESULTS.forEach(match => {
-        // Normalisation des noms pour la recherche
-        const p1Name = `${match.competitor1.firstname} ${match.competitor1.lastname}`.toLowerCase();
-        const p2Name = `${match.competitor2.firstname} ${match.competitor2.lastname}`.toLowerCase();
+      apiMatches.forEach(match => {
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+        const p1NameNorm = normalize(match.fighter1);
+        const p2NameNorm = normalize(match.fighter2);
 
-        // Chercher si un de nos gars est dedans
+        // On cherche si un de NOS compétiteurs est dans le match
         const myFighter = competitors.find(c => {
-           const cName = c.name.toLowerCase();
-           return p1Name.includes(cName) || p2Name.includes(cName); // Simple includes check
+           const cNameNorm = normalize(c.name);
+           return p1NameNorm.includes(cNameNorm) || p2NameNorm.includes(cNameNorm);
         });
 
         if (myFighter) {
           updatesCount++;
-          // Déterminer couleur
-          const isP1 = p1Name.includes(myFighter.name.toLowerCase());
-          const opponent = isP1 ? `${match.competitor2.firstname} ${match.competitor2.lastname}` : `${match.competitor1.firstname} ${match.competitor1.lastname}`;
+          const isP1 = p1NameNorm.includes(normalize(myFighter.name));
+          const opponent = isP1 ? match.fighter2 : match.fighter1;
           const color = isP1 ? 'Rouge' : 'Bleu';
 
           newFights.push({
-            id: `auto-${Date.now()}-${updatesCount}`,
+            id: `auto-${match.externalId || Date.now()}`,
             fighterId: myFighter.id,
             fighterName: myFighter.name,
             competitionId: selectedCompId,
-            fightNumber: match.number,
+            fightNumber: match.order,
             ring: match.ring,
             helmetColor: color,
             opponentName: opponent,
-            status: 'Pending',
+            status: match.status === 'finished' ? 'Finished' : match.status === 'current' ? 'Ongoing' : 'Pending',
             isAutoImported: true
           });
         }
       });
 
       if (updatesCount > 0) {
-        // Fusion intelligente : on remplace les existants si même fighter/compétition ou on ajoute
-        // Ici simple : on concatène pour la démo, en filtrant les doublons grossiers
         setFights(prev => {
-           const others = prev.filter(f => f.competitionId !== selectedCompId || !f.isAutoImported);
+           // On retire les anciens matchs auto de CETTE compétition pour éviter doublons
+           const others = prev.filter(f => !(f.competitionId === selectedCompId && f.isAutoImported));
            return [...others, ...newFights];
         });
-        alert(`Scan terminé : ${updatesCount} combats trouvés et mis à jour.`);
+        alert(`Scan terminé : ${updatesCount} combats mis à jour.`);
       } else {
-        alert("Aucun combattant du club trouvé dans le planning de cette compétition.");
+        alert("Aucun de vos compétiteurs détecté dans le planning.");
       }
 
+    } catch (e) {
+      alert("Erreur lors du scan du planning.");
+    } finally {
       setIsScanning(false);
-    }, 2000);
+    }
   };
 
-  // --- LOGIC GESTION ---
+  // --- MANUAL ACTIONS ---
   const handleUpdateFight = (id: string, field: keyof Fight, value: any) => {
     setFights(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
@@ -142,51 +282,111 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   };
 
   const filteredFights = fights.filter(f => f.competitionId === selectedCompId).sort((a, b) => a.fightNumber - b.fightNumber);
+  const currentCompetitionName = competitions.find(c => c.id === selectedCompId)?.name || 'Compétition';
 
   // --- RENDER ---
   return (
     <div className="p-4 pb-24 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div>
-           <h2 className="text-xl font-bold text-white uppercase tracking-wider">Tournoi</h2>
+           <h2 className="text-xl font-bold text-white uppercase tracking-wider">COMPÉTITIONS</h2>
            <p className="text-[10px] text-cyan-400 font-mono">
-             {isStaff ? 'MODE GESTION (ADMIN/COACH)' : 'MODE COMPÉTITEUR (LECTURE)'}
+             {isStaff ? 'MODE GESTION (ADMIN)' : 'MODE COMPÉTITEUR (LIVE)'}
            </p>
         </div>
-        <select 
-          value={selectedCompId} 
-          onChange={(e) => setSelectedCompId(e.target.value)}
-          className="bg-slate-800 text-xs text-white p-2 rounded border border-slate-600 max-w-[150px]"
-        >
-          {INITIAL_COMPETITIONS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div className="flex gap-2">
+           {isStaff && (
+             <button 
+               onClick={() => setShowApiSettings(!showApiSettings)}
+               className={`p-2 rounded border ${apiStatus === 'READY' ? 'border-green-500 bg-green-900/20 text-green-500' : 'border-slate-600 bg-slate-800 text-slate-400'}`}
+             >
+               <Settings size={16} />
+             </button>
+           )}
+           <select 
+            value={selectedCompId} 
+            onChange={(e) => setSelectedCompId(e.target.value)}
+            className="bg-slate-800 text-xs text-white p-2 rounded border border-slate-600 max-w-[150px] truncate"
+           >
+            {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+           </select>
+        </div>
       </div>
+
+      {/* --- API SETTINGS MODAL (Inline) --- */}
+      {showApiSettings && isStaff && (
+        <FuturisticCard className="mb-4 animate-fade-in" borderColor="cyan" title="CONNEXION FÉDÉRATION">
+           <div className="space-y-4">
+             {/* LOGIN FORM - Masqué si connecté manuellement pour gagner place */}
+             {apiStatus !== 'READY' && (
+                <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
+                  <form onSubmit={handleFederationLogin} className="space-y-2">
+                    <input type="text" placeholder="Email / ID" value={fedEmail} onChange={e => setFedEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
+                    <input type="password" placeholder="Mot de passe" value={fedPass} onChange={e => setFedPass(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
+                    <button type="submit" disabled={isLoggingIn} className="w-full bg-cyan-600 text-white rounded py-2 text-xs font-bold">{isLoggingIn ? '...' : 'CONNEXION AUTO'}</button>
+                  </form>
+                </div>
+             )}
+
+             {/* MANUAL TOKEN */}
+             <div className="flex gap-2">
+               <div className="relative flex-1">
+                 <Key className="absolute left-3 top-2.5 text-slate-500" size={14} />
+                 <input 
+                   type="text" 
+                   value={apiToken}
+                   onChange={e => setApiToken(e.target.value)}
+                   className="w-full bg-slate-950 border border-slate-700 rounded py-2 pl-9 pr-2 text-[10px] text-white font-mono"
+                   placeholder="Token Bearer..."
+                 />
+               </div>
+               <button onClick={handleSaveTokenManual} className="bg-slate-700 text-white px-3 rounded text-xs font-bold">OK</button>
+             </div>
+
+             <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
+               {/* BOUTON 1 : RECUP LISTE COMPETITIONS */}
+               <button 
+                 onClick={handleImportCompetitions} 
+                 disabled={isScanning || apiStatus !== 'READY'}
+                 className="flex flex-col items-center justify-center p-2 bg-slate-800 rounded hover:bg-slate-700 disabled:opacity-50"
+               >
+                 <CloudDownload size={16} className="text-cyan-400 mb-1"/>
+                 <span className="text-[9px] text-center">MAJ Compétitions</span>
+               </button>
+
+               {/* BOUTON 2 : RECUP COMPETITEURS DE L'EVENT */}
+               <button 
+                 onClick={handleImportCompetitors} 
+                 disabled={isScanning || apiStatus !== 'READY'}
+                 className="flex flex-col items-center justify-center p-2 bg-slate-800 rounded hover:bg-slate-700 disabled:opacity-50"
+               >
+                 <Users size={16} className="text-rose-400 mb-1"/>
+                 <span className="text-[9px] text-center">Importer Inscrits ({competitions.find(c=>c.id===selectedCompId)?.ffkmdaId || '?'})</span>
+               </button>
+             </div>
+           </div>
+        </FuturisticCard>
+      )}
 
       {/* Tabs */}
       <div className="flex space-x-2 mb-6 bg-slate-900/50 p-1 rounded-xl">
         {isStaff && (
           <button
             onClick={() => setActiveTab('GESTION')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === 'GESTION' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
-            }`}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'GESTION' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
             GESTION
           </button>
         )}
         <button
           onClick={() => setActiveTab('TIMELINE')}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-            activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
         >
           TIMELINE
         </button>
         <button
           onClick={() => setActiveTab('PALMARES')}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-            activeTab === 'PALMARES' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
-          }`}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'PALMARES' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
         >
           PALMARES
         </button>
@@ -197,12 +397,16 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
         <div className="space-y-4">
           <div className="flex justify-between gap-2">
             <button 
-               onClick={handleAutoScanFFKMDA} 
-               disabled={isScanning}
-               className="flex-1 flex items-center justify-center text-xs bg-slate-800 border border-slate-600 px-3 py-3 rounded text-green-400 hover:bg-slate-700 disabled:opacity-50"
+               onClick={handleAutoScanMatches} 
+               disabled={isScanning || apiStatus !== 'READY'}
+               className={`flex-1 flex items-center justify-center text-xs border px-3 py-3 rounded transition-colors disabled:opacity-50 ${
+                 apiStatus === 'READY' 
+                   ? 'bg-slate-800 border-green-500/50 text-green-400 hover:bg-slate-700' 
+                   : 'bg-slate-900 border-slate-700 text-slate-500'
+               }`}
             >
               <RefreshCw size={14} className={`mr-2 ${isScanning ? 'animate-spin' : ''}`}/> 
-              {isScanning ? 'SCAN EN COURS...' : 'SCAN AUTO FFKMDA'}
+              {isScanning ? 'SCAN EN COURS...' : 'SCAN PLANNING'}
             </button>
             <button onClick={addFight} className="flex-1 flex items-center justify-center text-xs bg-slate-800 border border-slate-600 px-3 py-3 rounded text-cyan-400 hover:bg-slate-700">
               <Plus size={14} className="mr-1"/> AJOUT MANUEL
@@ -210,7 +414,7 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
           </div>
 
           <div className="text-[10px] text-slate-500 text-center italic">
-            Connecté à l'API FFKMDA (Simulé) • Saison 2025/2026
+             {apiStatus === 'READY' ? `Connecté (Event ID: ${competitions.find(c=>c.id===selectedCompId)?.ffkmdaId})` : 'API Déconnectée'}
           </div>
           
           {filteredFights.map((fight) => (
@@ -263,6 +467,10 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
                       <option value="A">Ring A</option>
                       <option value="B">Ring B</option>
                       <option value="C">Ring C</option>
+                      {/* Cas où l'API renvoie autre chose */}
+                      {fight.isAutoImported && !['A','B','C'].includes(fight.ring) && (
+                         <option value={fight.ring}>{fight.ring}</option>
+                      )}
                     </select>
                   </div>
                   <div>
@@ -284,9 +492,14 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
         </div>
       )}
 
-      {/* --- TIMELINE VIEW (PUBLIC/COMPETITOR) --- */}
+      {/* --- TIMELINE VIEW --- */}
       {activeTab === 'TIMELINE' && (
         <div className="space-y-6">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-bold text-white">{currentCompetitionName}</h3>
+            <span className="text-xs text-slate-500">Ordre de passage en temps réel</span>
+          </div>
+
           {['A', 'B', 'C'].map(ring => {
             const ringFights = filteredFights.filter(f => f.ring === ring);
             if(ringFights.length === 0) return null;
@@ -301,29 +514,13 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
                     {ringFights.map(fight => (
                        <div key={fight.id} className="relative pl-4 py-2 group">
                            {/* Status Dot */}
-                           <div className={`absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 z-10 ${
-                             fight.status === 'Finished' ? 'bg-slate-700 border-slate-500' :
-                             fight.status === 'Ongoing' ? 'bg-green-500 border-green-300 animate-pulse' :
-                             'bg-slate-900 border-slate-600'
-                           }`}></div>
+                           <div className={`absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 z-10 ${fight.status === 'Finished' ? 'bg-slate-700 border-slate-500' : fight.status === 'Ongoing' ? 'bg-green-500 border-green-300 animate-pulse' : 'bg-slate-900 border-slate-600'}`}></div>
                            
-                           <div className={`text-sm font-bold ${
-                             fight.helmetColor === 'Rouge' ? 'text-rose-400' : 
-                             fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 
-                             'text-slate-300'
-                           }`}>
+                           <div className={`text-sm font-bold ${fight.helmetColor === 'Rouge' ? 'text-rose-400' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-300'}`}>
                              #{fight.fightNumber} - {fight.fighterName}
                            </div>
-                           <div className="text-xs text-slate-400">
-                             <span className="text-slate-600">vs</span> {fight.opponentName || '???'}
-                           </div>
-                           
-                           {/* Highlight pour l'utilisateur courant */}
-                           {currentUser.id === fight.fighterId && (
-                             <div className="mt-1 inline-block bg-yellow-500/20 text-yellow-400 text-[10px] px-2 rounded border border-yellow-500/30">
-                               C'EST TON TOUR !
-                             </div>
-                           )}
+                           <div className="text-xs text-slate-400"><span className="text-slate-600">vs</span> {fight.opponentName || '???'}</div>
+                           {currentUser.id === fight.fighterId && (<div className="mt-1 inline-block bg-yellow-500/20 text-yellow-400 text-[10px] px-2 rounded border border-yellow-500/30 animate-pulse">🔥 C'EST TON TOUR !</div>)}
                        </div>
                     ))}
                  </div>
@@ -331,8 +528,8 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
             )
           })}
           {filteredFights.length === 0 && (
-            <div className="text-center text-slate-500 text-xs py-10">
-              Aucun combat planifié pour l'instant.
+            <div className="text-center text-slate-500 text-xs py-10 border border-dashed border-slate-800 rounded">
+              <p>Aucun combat planifié.</p>
             </div>
           )}
         </div>
@@ -347,10 +544,13 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
                  <Shield className="text-yellow-500" size={20} />
                  <span className="font-bold text-lg">{comp.name}</span>
                </div>
-               <p className="text-xs text-slate-500 italic">Section palmarès à implémenter complètement.</p>
+               <div className="text-xs text-slate-400">
+                  <p>Catégorie : {comp.category}</p>
+                  <p className="mt-1 italic opacity-50">Historique des médailles...</p>
+               </div>
              </FuturisticCard>
            ))}
-           {competitors.length === 0 && <p className="text-slate-500 text-center text-sm">Aucun compétiteur enregistré.</p>}
+           {competitors.length === 0 && <p className="text-slate-500 text-center text-sm">Aucun compétiteur enregistré. Utilisez "Importer Inscrits".</p>}
         </div>
       )}
 
