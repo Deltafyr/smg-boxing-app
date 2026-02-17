@@ -21,10 +21,11 @@ const SplashScreen = () => (
        <div className="absolute inset-0 bg-cyan-500 rounded-full blur-xl opacity-20 animate-ping"></div>
        <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/30 to-rose-500/30 rounded-full blur-md animate-pulse"></div>
        
-       {/* Logo CSS */}
-       <div className="relative z-10 w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.3)]">
-         <span className="text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white tracking-tighter pr-1">SMG</span>
-       </div>
+       <img 
+         src="/logo.png?v=2" 
+         alt="Loading" 
+         className="relative z-10 w-full h-full object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]" 
+       />
     </div>
     <div className="flex flex-col items-center space-y-2">
       <h1 className="text-2xl font-black italic tracking-tighter text-white">S.M.G</h1>

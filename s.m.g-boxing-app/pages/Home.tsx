@@ -33,10 +33,16 @@ const Home: React.FC<HomeProps> = ({ onNavigate, announcements, currentUser }) =
           <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-rose-500 rounded-full opacity-20 group-hover:opacity-40 blur-xl transition duration-1000 animate-pulse"></div>
           
           <div className="relative w-32 h-32 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800 shadow-2xl overflow-hidden hover:scale-105 transition-transform duration-500">
-             {/* Logo CSS de remplacement */}
-             <div className="w-full h-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center">
-                <span className="text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white tracking-tighter pr-1 drop-shadow-lg">SMG</span>
-             </div>
+             <img 
+               src="/logo.png?v=2" 
+               alt="SMG Boxing Club" 
+               className="w-full h-full object-contain p-2"
+               onError={(e) => {
+                 // Fallback si l'image ne charge pas
+                 e.currentTarget.style.display = 'none';
+                 e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-black"><span class="text-cyan-500 font-bold">SMG</span></div>';
+               }}
+             />
           </div>
         </div>
         

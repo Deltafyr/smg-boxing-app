@@ -57,10 +57,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 space-y-8">
       <div className="flex flex-col items-center space-y-4">
-         <div className="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 p-1 shadow-[0_0_30px_rgba(6,182,212,0.3)] flex items-center justify-center">
-             <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center border border-slate-700">
-                <span className="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white tracking-tighter pr-1">SMG</span>
-             </div>
+         <div className="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 p-1 shadow-[0_0_30px_rgba(6,182,212,0.3)] flex items-center justify-center overflow-hidden">
+             <img 
+               src="/logo.png?v=2" 
+               alt="SMG Logo" 
+               className="w-full h-full object-contain"
+             />
          </div>
          <div className="text-center">
              <h1 className="text-3xl font-black text-white italic tracking-tighter">S.M.G ACCESS</h1>
