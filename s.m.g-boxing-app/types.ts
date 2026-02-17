@@ -1,18 +1,65 @@
+export type UserRole = 'Member' | 'Coach' | 'Admin';
+
+export interface ChildProfile {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'H' | 'F';
+}
+
+export interface UserDocument {
+  id: string;
+  type: 'Certificat Médical' | 'Auto. Soins' | 'Auto. Transport' | 'Règlement' | 'Autre';
+  fileName: string;
+  date: string;
+  status: 'Pending' | 'Valid' | 'Rejected';
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  category: 'Loisir' | 'Compétiteur' | 'Pro' | 'Parent';
+  
+  // Champs existants
+  phone?: string;
+  age?: number;
+  gender?: 'H' | 'F';
+  
+  // Nouveaux champs demandés
+  address?: string;
+  documents?: UserDocument[];
+  
+  // Logique Parentale
+  isParent?: boolean;
+  isPractitioner?: boolean;
+  children?: ChildProfile[];
+}
+
 export interface Member {
   id: string;
   name: string;
   phone: string;
   photoUrl?: string;
-  category: 'Loisir' | 'Compétiteur' | 'Pro';
+  category: 'Loisir' | 'Compétiteur' | 'Pro' | 'Parent';
   notes: string;
   wins: number;
   losses: number;
   draws: number;
   titles: Title[];
-  // Nouveaux champs pour la page perso
   documentsUpToDate: boolean;
   subscriptionStatus: 'Paid' | 'Partial' | 'Unpaid';
   lastMedicalUpdate: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  author: string;
+  priority: 'High' | 'Normal';
 }
 
 export interface Title {
@@ -63,6 +110,8 @@ export interface ChatMessage {
 }
 
 export enum AppRoute {
+  LOGIN = 'login',
+  REGISTER = 'register',
   HOME = 'home',
   TIMER = 'timer',
   MEMBERS = 'members',
@@ -70,5 +119,6 @@ export enum AppRoute {
   CALENDAR = 'calendar',
   INFO = 'info',
   CHAT = 'chat',
-  PROFILE = 'profile'
+  PROFILE = 'profile',
+  ADMIN = 'admin'
 }

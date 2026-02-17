@@ -1,20 +1,55 @@
-import React, { useState } from 'react';
-import { Member } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Member, User, ChildProfile } from '../types';
 import { INITIAL_MEMBERS } from '../constants';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Phone, MessageCircle, FileText, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, MessageCircle, FileText, UserPlus, ChevronDown, ChevronUp, Baby, Users } from 'lucide-react';
+
+// Extension de l'interface Member locale pour inclure les enfants pour l'affichage
+interface MemberWithChildren extends Member {
+  childrenDetails?: ChildProfile[];
+}
 
 const Members: React.FC = () => {
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
+  const [members, setMembers] = useState<MemberWithChildren[]>(INITIAL_MEMBERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedUsers = localStorage.getItem('smg_users');
+    if (storedUsers) {
+      const users: User[] = JSON.parse(storedUsers);
+      
+      const convertedMembers: MemberWithChildren[] = users.map(u => {
+        let noteContent = u.category === 'Parent' ? 'Parent référent.' : 'Nouvel inscrit.';
+        
+        return {
+          id: u.id,
+          name: u.name,
+          phone: u.phone || '',
+          category: u.category,
+          notes: noteContent, // On garde une note générique
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          titles: [],
+          documentsUpToDate: (u.documents?.length || 0) > 0,
+          subscriptionStatus: 'Unpaid',
+          lastMedicalUpdate: 'En attente',
+          childrenDetails: u.children // On passe les enfants directement
+        };
+      });
+
+      // Fusionner avec les membres initiaux
+      setMembers([...INITIAL_MEMBERS, ...convertedMembers]);
+    }
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
   const sendWhatsApp = (phone: string, name: string) => {
-    // Format phone number (remove 0, add 33) assuming French numbers
-    const formatted = phone.replace(/^0/, '33').replace(/\s/g, '');
+    if (!phone) return alert('Pas de numéro renseigné');
+    const formatted = phone.replace(/^0/, '33').replace(/\s/g, '').replace(/\./g, '');
     const url = `https://wa.me/${formatted}?text=Bonjour ${name}, message du club S.M.G :`;
     window.open(url, '_blank');
   };
@@ -30,15 +65,32 @@ const Members: React.FC = () => {
 
       <div className="space-y-4">
         {members.map((member) => (
-          <FuturisticCard key={member.id} className="transition-all duration-300" borderColor={member.category === 'Compétiteur' ? 'rose' : 'slate'}>
+          <FuturisticCard 
+            key={member.id} 
+            className="transition-all duration-300" 
+            borderColor={member.category === 'Compétiteur' ? 'rose' : member.category === 'Parent' ? 'cyan' : 'slate'}
+          >
             <div className="flex justify-between items-center" onClick={() => toggleExpand(member.id)}>
               <div className="flex items-center space-x-3">
-                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${member.category === 'Compétiteur' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700 text-slate-300'}`}>
+                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold relative ${
+                   member.category === 'Compétiteur' ? 'bg-rose-500/20 text-rose-400' : 
+                   member.category === 'Parent' ? 'bg-cyan-500/20 text-cyan-400' : 
+                   'bg-slate-700 text-slate-300'
+                 }`}>
                     {member.name.charAt(0)}
+                    {member.category === 'Parent' && (
+                      <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5 border border-cyan-500">
+                        <Baby size={10} className="text-cyan-400"/>
+                      </div>
+                    )}
                  </div>
                  <div>
                    <h3 className="font-bold text-slate-100">{member.name}</h3>
-                   <span className={`text-xs px-2 py-0.5 rounded-full ${member.category === 'Compétiteur' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-slate-700 text-slate-400'}`}>
+                   <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                     member.category === 'Compétiteur' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 
+                     member.category === 'Parent' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 
+                     'bg-slate-700 text-slate-400 border-slate-600'
+                   }`}>
                      {member.category}
                    </span>
                  </div>
@@ -58,7 +110,7 @@ const Members: React.FC = () => {
                     </div>
                     <span className="text-[10px] mt-1 text-slate-400">WhatsApp</span>
                   </button>
-                  <button className="flex flex-col items-center group">
+                  <button className="flex flex-col items-center group" onClick={() => member.phone && window.open(`tel:${member.phone}`)}>
                     <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
                        <Phone size={20} className="text-blue-500" />
                     </div>
@@ -66,10 +118,33 @@ const Members: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Section Enfants pour les Parents */}
+                {member.category === 'Parent' && member.childrenDetails && member.childrenDetails.length > 0 && (
+                  <div className="bg-slate-900/80 p-3 rounded-lg border border-cyan-900/50">
+                     <div className="flex items-center mb-2 text-cyan-400">
+                        <Users size={14} className="mr-2" />
+                        <span className="text-xs font-bold uppercase">Enfants à charge</span>
+                     </div>
+                     <div className="space-y-2">
+                       {member.childrenDetails.map((child, idx) => (
+                         <div key={idx} className="flex justify-between items-center bg-slate-950 p-2 rounded border border-slate-800">
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full ${child.gender === 'H' ? 'bg-cyan-900 text-cyan-400' : 'bg-rose-900 text-rose-400'}`}>
+                                {child.gender}
+                              </span>
+                              <span className="text-sm text-slate-200">{child.name}</span>
+                            </div>
+                            <span className="text-xs text-slate-500">{child.age} ans</span>
+                         </div>
+                       ))}
+                     </div>
+                  </div>
+                )}
+
                 <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800">
                   <div className="flex items-center mb-2">
                     <FileText size={14} className="text-slate-500 mr-2" />
-                    <span className="text-xs font-mono uppercase text-slate-500">Notes du Coach</span>
+                    <span className="text-xs font-mono uppercase text-slate-500">Note</span>
                   </div>
                   <p className="text-sm text-slate-300 italic">"{member.notes}"</p>
                 </div>

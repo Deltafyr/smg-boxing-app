@@ -1,40 +1,24 @@
 import React from 'react';
-import { AppRoute, Announcement, User } from '../types';
+import { AppRoute } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Timer, Trophy, Calendar, AlertCircle, Megaphone } from 'lucide-react';
+import { Timer, Trophy, Calendar, AlertCircle } from 'lucide-react';
 
 interface HomeProps {
   onNavigate: (route: AppRoute) => void;
-  announcements: Announcement[];
-  currentUser: User | null;
 }
 
-const Home: React.FC<HomeProps> = ({ onNavigate, announcements, currentUser }) => {
-  // Use last announcement or default
-  const defaultAnnouncement: Announcement = {
-    id: 'default',
-    title: 'Bienvenue',
-    content: 'Bon entraînement à tous !',
-    priority: 'Normal',
-    date: new Date().toLocaleDateString(),
-    author: 'S.M.G'
-  };
-
-  const latestAnnouncement = announcements.length > 0 
-    ? announcements[announcements.length - 1] 
-    : defaultAnnouncement;
-
+const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   return (
     <div className="p-4 space-y-6 pb-20">
       {/* Header / Logo Area */}
-      <div className="flex flex-col items-center justify-center py-6 space-y-4">
+      <div className="flex flex-col items-center justify-center py-8 space-y-6">
         <div className="relative group">
           {/* Animated Glow Effect */}
           <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-rose-500 rounded-full opacity-20 group-hover:opacity-40 blur-xl transition duration-1000 animate-pulse"></div>
           
-          <div className="relative w-32 h-32 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800 shadow-2xl overflow-hidden">
+          <div className="relative w-40 h-40 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800 shadow-2xl overflow-hidden">
              <img 
-               src="/logo.png?v=2" 
+               src="/logo.png" 
                alt="SMG Boxing Club" 
                className="w-full h-full object-contain p-2 hover:scale-110 transition-transform duration-500"
                onError={(e) => {
@@ -46,16 +30,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate, announcements, currentUser }) =
         </div>
         
         <div className="text-center space-y-1">
-             <h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-rose-500 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
+             <h1 className="text-3xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-rose-500 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
                S.M.G BOXING
              </h1>
-             {currentUser ? (
-               <p className="text-sm text-slate-300 font-mono">
-                 Bonjour, <span className="text-cyan-400 font-bold">{currentUser.name.split(' ')[0]}</span>
-               </p>
-             ) : (
-               <p className="text-[10px] text-slate-400 tracking-[0.5em] uppercase font-mono">Club 01 • Excellence</p>
-             )}
+             <p className="text-[10px] text-slate-400 tracking-[0.5em] uppercase font-mono">Club 01 • Excellence</p>
         </div>
       </div>
 
@@ -91,29 +69,15 @@ const Home: React.FC<HomeProps> = ({ onNavigate, announcements, currentUser }) =
         </button>
       </div>
 
-      {/* Notification / Info Widget (Dynamic) */}
-      <FuturisticCard title="INFO CLUB" borderColor={latestAnnouncement.priority === 'High' ? 'rose' : 'slate'}>
+      {/* Notification / Info Widget */}
+      <FuturisticCard title="INFO CLUB">
         <div className="flex items-start space-x-3">
-          {latestAnnouncement.priority === 'High' ? (
-             <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5 animate-pulse" />
-          ) : (
-             <Megaphone className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-          )}
-          
-          <div className="flex-1">
-             <div className="flex justify-between items-center mb-1">
-               <span className="font-bold text-slate-200 text-sm">{latestAnnouncement.title}</span>
-             </div>
-             <p className="text-xs text-slate-300 leading-relaxed">
-               {latestAnnouncement.content}
-               <br/>
-             </p>
-             {latestAnnouncement.author && (
-               <div className="mt-2 text-[10px] text-slate-500 font-mono text-right">
-                 Par {latestAnnouncement.author}
-               </div>
-             )}
-          </div>
+          <AlertCircle className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5 animate-pulse" />
+          <p className="text-xs text-slate-300 leading-relaxed">
+            La salle sera fermée ce vendredi pour rénovation. Reprise des cours Lundi 18h.
+            <br/>
+            <span className="text-slate-500 mt-2 block font-mono text-[10px]">Il y a 2 heures</span>
+          </p>
         </div>
       </FuturisticCard>
     </div>
