@@ -1,5 +1,5 @@
 import React from 'react';
-import { Timer, MessageSquare, Home, User, ShieldCheck } from 'lucide-react';
+import { Timer, MessageSquare, Home, User, ShieldCheck, Trophy } from 'lucide-react';
 import { AppRoute, User as UserType } from '../types';
 
 interface NavbarProps {
@@ -9,15 +9,30 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, currentUser }) => {
+  if (!currentUser) return null;
+
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
+  const isCompetitor = currentUser.category === 'Compétiteur' || currentUser.category === 'Pro';
+
+  // Liste de base accessible à tous (Membres inclus)
   const navItems = [
     { id: AppRoute.HOME, icon: Home, label: 'Accueil' },
     { id: AppRoute.TIMER, icon: Timer, label: 'Chrono' },
-    { id: AppRoute.CHAT, icon: MessageSquare, label: 'Chat' },
-    { id: AppRoute.PROFILE, icon: User, label: 'Profil' },
   ];
 
-  // Add Admin Tab if user is Admin or Coach
-  if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Coach')) {
+  // Onglet Tournois : Visible pour Staff OU Compétiteurs
+  if (isStaff || isCompetitor) {
+    navItems.push({ id: AppRoute.TOURNAMENT, icon: Trophy, label: 'Tournois' });
+  }
+
+  // Onglet Chat : Pour tout le monde
+  navItems.push({ id: AppRoute.CHAT, icon: MessageSquare, label: 'Chat' });
+
+  // Onglet Profil : Pour tout le monde
+  navItems.push({ id: AppRoute.PROFILE, icon: User, label: 'Profil' });
+
+  // Onglet Admin : UNIQUEMENT pour Admin et Coach
+  if (isStaff) {
     navItems.push({ id: AppRoute.ADMIN, icon: ShieldCheck, label: 'Admin' });
   }
 

@@ -1,3 +1,4 @@
+
 export type UserRole = 'Member' | 'Coach' | 'Admin';
 
 export interface ChildProfile {
@@ -71,12 +72,15 @@ export interface Title {
 export interface Fight {
   id: string;
   fighterId: string;
+  fighterName: string; // Denormalized for easier display
   opponentName?: string;
   competitionId: string;
   fightNumber: number;
-  ring: string;
-  helmetColor: 'Rouge' | 'Bleu';
+  ring: string; // Aire/Ring/Tatami
+  helmetColor: 'Rouge' | 'Bleu' | 'Inconnu';
   status: 'Pending' | 'Ongoing' | 'Finished';
+  result?: 'Victoire' | 'Défaite' | 'Nul' | '';
+  isAutoImported?: boolean; // To mark fights from FFKMDA
 }
 
 export interface Competition {
@@ -84,6 +88,7 @@ export interface Competition {
   name: string;
   date: string;
   location: string;
+  ffkmdaId?: string; // ID pour l'API externe
 }
 
 export interface CalendarEvent {

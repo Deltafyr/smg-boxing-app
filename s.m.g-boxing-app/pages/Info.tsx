@@ -10,8 +10,10 @@ const Info: React.FC = () => {
   return (
     <div className="p-4 pb-20 space-y-6">
       <div className="flex flex-col items-center text-center space-y-4">
-        <div className="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 p-2 shadow-lg shadow-cyan-900/20">
-          <img src="/logo.png?v=2" alt="Logo" className="w-full h-full object-contain" />
+        <div className="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 p-1 shadow-lg shadow-cyan-900/20 flex items-center justify-center">
+           <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center border border-slate-700">
+              <span className="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white tracking-tighter pr-1">SMG</span>
+           </div>
         </div>
         <div>
             <h1 className="text-3xl font-black text-white italic">S.M.G</h1>
@@ -78,7 +80,7 @@ const Info: React.FC = () => {
       </FuturisticCard>
       
       <div className="text-center text-[10px] text-slate-600 mt-8">
-        v1.0.2 - S.M.G App
+        v1.0.3 - S.M.G App
       </div>
     </div>
   );

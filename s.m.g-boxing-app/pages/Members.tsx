@@ -2,16 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Member, User, ChildProfile } from '../types';
 import { INITIAL_MEMBERS } from '../constants';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Phone, MessageCircle, FileText, UserPlus, ChevronDown, ChevronUp, Baby, Users } from 'lucide-react';
+import { Phone, MessageCircle, FileText, UserPlus, ChevronDown, ChevronUp, Baby, Users, Lock } from 'lucide-react';
 
-// Extension de l'interface Member locale pour inclure les enfants pour l'affichage
 interface MemberWithChildren extends Member {
   childrenDetails?: ChildProfile[];
 }
 
-const Members: React.FC = () => {
+interface MembersProps {
+  currentUser: User;
+}
+
+const Members: React.FC<MembersProps> = ({ currentUser }) => {
   const [members, setMembers] = useState<MemberWithChildren[]>(INITIAL_MEMBERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
 
   useEffect(() => {
     const storedUsers = localStorage.getItem('smg_users');
@@ -26,7 +31,7 @@ const Members: React.FC = () => {
           name: u.name,
           phone: u.phone || '',
           category: u.category,
-          notes: noteContent, // On garde une note générique
+          notes: noteContent, 
           wins: 0,
           losses: 0,
           draws: 0,
@@ -34,11 +39,10 @@ const Members: React.FC = () => {
           documentsUpToDate: (u.documents?.length || 0) > 0,
           subscriptionStatus: 'Unpaid',
           lastMedicalUpdate: 'En attente',
-          childrenDetails: u.children // On passe les enfants directement
+          childrenDetails: u.children 
         };
       });
 
-      // Fusionner avec les membres initiaux
       setMembers([...INITIAL_MEMBERS, ...convertedMembers]);
     }
   }, []);
@@ -57,10 +61,16 @@ const Members: React.FC = () => {
   return (
     <div className="p-4 pb-24">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">Adhérents</h2>
-        <button className="bg-gradient-to-r from-cyan-600 to-blue-600 p-2 rounded-full shadow-lg shadow-cyan-500/30">
-          <UserPlus className="text-white" size={24} />
-        </button>
+        <div>
+           <h2 className="text-2xl font-bold text-white">Adhérents</h2>
+           {!isStaff && <p className="text-[10px] text-slate-500">Vue Liste (Lecture Seule)</p>}
+        </div>
+        
+        {isStaff && (
+          <button className="bg-gradient-to-r from-cyan-600 to-blue-600 p-2 rounded-full shadow-lg shadow-cyan-500/30">
+            <UserPlus className="text-white" size={24} />
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -141,12 +151,21 @@ const Members: React.FC = () => {
                   </div>
                 )}
 
-                <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800">
+                <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 relative">
                   <div className="flex items-center mb-2">
                     <FileText size={14} className="text-slate-500 mr-2" />
-                    <span className="text-xs font-mono uppercase text-slate-500">Note</span>
+                    <span className="text-xs font-mono uppercase text-slate-500">Note Staff</span>
                   </div>
-                  <p className="text-sm text-slate-300 italic">"{member.notes}"</p>
+                  {isStaff ? (
+                     <textarea 
+                       className="w-full bg-transparent text-sm text-slate-300 italic border-none outline-none resize-none"
+                       defaultValue={member.notes}
+                       rows={2}
+                     />
+                  ) : (
+                     <p className="text-sm text-slate-300 italic blur-[2px] select-none">Ceci est une note privée réservée au staff.</p>
+                  )}
+                  {!isStaff && <Lock size={12} className="absolute top-3 right-3 text-slate-600"/>}
                 </div>
 
                 {member.category === 'Compétiteur' && (
@@ -166,16 +185,6 @@ const Members: React.FC = () => {
                         <div className="text-[10px] text-slate-500">NULS</div>
                       </div>
                     </div>
-                    {member.titles.length > 0 && (
-                      <div className="space-y-1">
-                        {member.titles.map((title, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-slate-300 border-b border-slate-800 pb-1">
-                             <span>{title.competition} ({title.year})</span>
-                             <span className={title.rank === 'Or' ? 'text-yellow-400 font-bold' : title.rank === 'Argent' ? 'text-gray-300 font-bold' : 'text-orange-400'}>{title.rank}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

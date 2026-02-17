@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AppRoute, User } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Lock, Mail, ChevronRight } from 'lucide-react';
+import { Lock, Mail, ChevronRight, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -16,16 +16,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    attemptLogin(email, password);
+  };
 
-    // Simulation de connexion basique
-    // Dans une vraie app, cela appellerait une API
-    
-    // Admin backdoor pour la démo
-    if (email === 'admin@smg.com' && password === 'admin') {
+  const attemptLogin = (mail: string, pass: string) => {
+    // Admin backdoor
+    if (mail === 'admin@smg.com' && pass === 'admin') {
       const adminUser: User = {
         id: 'admin-1',
         name: 'Coach Principal',
-        email: email,
+        email: mail,
         role: 'Admin',
         category: 'Pro'
       };
@@ -33,31 +33,34 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
       return;
     }
 
-    // Récupération des utilisateurs stockés localement (simulation BDD)
+    // Récupération des utilisateurs stockés localement
     const storedUsers = localStorage.getItem('smg_users');
     const users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
     
-    // Check local storage users OR simple demo login
-    const foundUser = users.find(u => u.email === email); // Note: on ne vérifie pas le mdp stocké pour la demo simplifiée
+    const foundUser = users.find(u => u.email === mail); 
 
     if (foundUser) {
        onLogin(foundUser);
     } else {
-       // Allow generic login for demo if not found in registered list
-       if (password.length < 3) {
+       if (pass.length < 3) {
          setError('Mot de passe trop court');
          return;
        }
-       // Fallback user
        setError('Utilisateur non trouvé. Inscrivez-vous.');
     }
+  };
+
+  const loginAsAdmin = () => {
+    attemptLogin('admin@smg.com', 'admin');
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 space-y-8">
       <div className="flex flex-col items-center space-y-4">
-         <div className="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 p-2 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
-            <img src="/logo.png?v=2" alt="Logo" className="w-full h-full object-contain" />
+         <div className="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 p-1 shadow-[0_0_30px_rgba(6,182,212,0.3)] flex items-center justify-center">
+             <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center border border-slate-700">
+                <span className="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white tracking-tighter pr-1">SMG</span>
+             </div>
          </div>
          <div className="text-center">
              <h1 className="text-3xl font-black text-white italic tracking-tighter">S.M.G ACCESS</h1>
@@ -107,14 +110,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
         </form>
       </FuturisticCard>
 
-      <div className="text-center space-y-4">
-        <p className="text-slate-500 text-sm">Pas encore membre ?</p>
+      <div className="text-center space-y-4 w-full max-w-sm">
         <button 
-          onClick={() => onNavigate(AppRoute.REGISTER)}
-          className="text-cyan-400 text-sm font-bold border-b border-cyan-400/30 pb-0.5 hover:text-cyan-300 transition-colors"
+          onClick={loginAsAdmin}
+          className="w-full py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center space-x-2"
         >
-          CRÉER UN COMPTE
+          <ShieldCheck size={14} />
+          <span>CONNEXION ADMIN (DÉMO)</span>
         </button>
+
+        <div className="pt-2">
+          <p className="text-slate-500 text-sm">Pas encore membre ?</p>
+          <button 
+            onClick={() => onNavigate(AppRoute.REGISTER)}
+            className="text-cyan-400 text-sm font-bold border-b border-cyan-400/30 pb-0.5 hover:text-cyan-300 transition-colors mt-1"
+          >
+            CRÉER UN COMPTE
+          </button>
+        </div>
       </div>
     </div>
   );
