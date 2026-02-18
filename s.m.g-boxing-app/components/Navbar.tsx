@@ -22,7 +22,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, currentUser }
 
   // Onglet Tournois : Visible pour Staff OU Compétiteurs
   if (isStaff || isCompetitor) {
-    navItems.push({ id: AppRoute.TOURNAMENT, icon: Trophy, label: 'Tournois' });
+    navItems.push({ id: AppRoute.TOURNAMENT, icon: Trophy, label: 'Compétitions' });
   }
 
   // Onglet Chat : Pour tout le monde

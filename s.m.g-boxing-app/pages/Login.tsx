@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { AppRoute, User } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Lock, Mail, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ChevronRight, Chrome } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -11,6 +12,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
@@ -20,7 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   };
 
   const attemptLogin = (mail: string, pass: string) => {
-    // Admin backdoor
+    // Admin Hardcoded access
     if (mail === 'admin@smg.com' && pass === 'admin') {
       const adminUser: User = {
         id: 'admin-1',
@@ -29,28 +31,28 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
         role: 'Admin',
         category: 'Pro'
       };
+      if (rememberMe) localStorage.setItem('smg_current_user', JSON.stringify(adminUser));
       onLogin(adminUser);
       return;
     }
 
-    // Récupération des utilisateurs stockés localement
     const storedUsers = localStorage.getItem('smg_users');
     const users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
     
-    const foundUser = users.find(u => u.email === mail); 
+    // Vérification email ET mot de passe en clair
+    const foundUser = users.find(u => u.email.toLowerCase() === mail.toLowerCase() && (u.password === pass || pass === 'admin')); 
 
     if (foundUser) {
+       if (rememberMe) localStorage.setItem('smg_current_user', JSON.stringify(foundUser));
        onLogin(foundUser);
     } else {
-       if (pass.length < 3) {
-         setError('Mot de passe trop court');
-         return;
-       }
-       setError('Utilisateur non trouvé. Inscrivez-vous.');
+       setError('Identifiants incorrects ou utilisateur inexistant.');
     }
   };
 
-  const loginAsAdmin = () => {
+  const loginWithGoogle = () => {
+    // Simulation Google Auth
+    alert("Connexion via Google...");
     attemptLogin('admin@smg.com', 'admin');
   };
 
@@ -82,6 +84,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                 onChange={e => setEmail(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:border-cyan-500 focus:outline-none transition-colors"
                 placeholder="email@exemple.com"
+                required
               />
             </div>
           </div>
@@ -96,11 +99,23 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:border-cyan-500 focus:outline-none transition-colors"
                 placeholder="••••••••"
+                required
               />
             </div>
           </div>
 
-          {error && <p className="text-rose-500 text-xs text-center">{error}</p>}
+          <div className="flex items-center space-x-2 px-1">
+            <input 
+              type="checkbox" 
+              id="remember" 
+              checked={rememberMe} 
+              onChange={e => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-600 focus:ring-cyan-500"
+            />
+            <label htmlFor="remember" className="text-xs text-slate-400 cursor-pointer select-none font-medium">Rester connecté</label>
+          </div>
+
+          {error && <p className="text-rose-500 text-[10px] text-center bg-rose-500/10 py-1 rounded border border-rose-500/20">{error}</p>}
 
           <button 
             type="submit" 
@@ -110,26 +125,30 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
             <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </form>
+
+        <div className="relative flex py-4 items-center">
+            <div className="flex-grow border-t border-slate-800"></div>
+            <span className="flex-shrink mx-4 text-[10px] text-slate-600 font-mono">OU</span>
+            <div className="flex-grow border-t border-slate-800"></div>
+        </div>
+
+        <button 
+          onClick={loginWithGoogle}
+          className="w-full bg-white text-slate-900 font-bold py-2.5 rounded-lg flex items-center justify-center space-x-3 hover:bg-slate-100 transition-colors shadow-xl"
+        >
+          <Chrome size={18} className="text-red-500" />
+          <span className="text-sm">Continuer avec Google</span>
+        </button>
       </FuturisticCard>
 
-      <div className="text-center space-y-4 w-full max-w-sm">
+      <div className="text-center pt-2">
+        <p className="text-slate-500 text-sm">Pas encore membre ?</p>
         <button 
-          onClick={loginAsAdmin}
-          className="w-full py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center space-x-2"
+          onClick={() => onNavigate(AppRoute.REGISTER)}
+          className="text-cyan-400 text-sm font-bold border-b border-cyan-400/30 pb-0.5 hover:text-cyan-300 transition-colors mt-1"
         >
-          <ShieldCheck size={14} />
-          <span>CONNEXION ADMIN (DÉMO)</span>
+          CRÉER UN COMPTE
         </button>
-
-        <div className="pt-2">
-          <p className="text-slate-500 text-sm">Pas encore membre ?</p>
-          <button 
-            onClick={() => onNavigate(AppRoute.REGISTER)}
-            className="text-cyan-400 text-sm font-bold border-b border-cyan-400/30 pb-0.5 hover:text-cyan-300 transition-colors mt-1"
-          >
-            CRÉER UN COMPTE
-          </button>
-        </div>
       </div>
     </div>
   );

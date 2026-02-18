@@ -1,9 +1,29 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { INITIAL_MEMBERS, INITIAL_COMPETITIONS } from '../constants';
-import { Fight, User, Competition } from '../types';
+import { Fight, User, Competition, FightStage, CalendarEvent, Announcement } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Shield, AlertTriangle, Plus, Trash2, Globe, RefreshCw, Eye, Settings, CloudDownload, Key, LogIn, AlertCircle, Users } from 'lucide-react';
-import { getActiveCompetitions, getCompetitionMatches, getCompetitionRegistrations, loginFFKMDA } from '../services/ffkmda';
+// Added Lock and Unlock icons to fix the reference error on line 397
+import { 
+  Plus, Trash2, Hash, MapPin, Shield, AlertTriangle, 
+  CheckCircle2, XCircle, Trophy, Zap, Award, Calendar as CalIcon, Scale,
+  Lock, Unlock
+} from 'lucide-react';
+
+// Fonction utilitaire pour envoyer une notification système
+const sendPushNotification = (title: string, body: string) => {
+  if (!("Notification" in window)) return;
+  
+  if (Notification.permission === "granted") {
+    new Notification(title, { body, icon: '/logo.png' });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        new Notification(title, { body, icon: '/logo.png' });
+      }
+    });
+  }
+};
 
 interface TournamentProps {
   currentUser: User;
@@ -11,549 +31,493 @@ interface TournamentProps {
 
 const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
-  
-  // --- STATE ---
-  const [activeTab, setActiveTab] = useState<'GESTION' | 'TIMELINE' | 'PALMARES'>(isStaff ? 'GESTION' : 'TIMELINE');
+  const [activeTab, setActiveTab] = useState<'GESTION' | 'TIMELINE' | 'PALMARES' | 'PLANNING'>(isStaff ? 'GESTION' : 'TIMELINE');
   const [competitions, setCompetitions] = useState<Competition[]>(INITIAL_COMPETITIONS);
   const [selectedCompId, setSelectedCompId] = useState(INITIAL_COMPETITIONS[0].id);
-  const [fights, setFights] = useState<Fight[]>([
-    { id: 'f1', fighterId: '1', fighterName: 'Thomas Anderson', competitionId: 'c1', fightNumber: 10, ring: 'A', helmetColor: 'Rouge', status: 'Pending', opponentName: 'John Doe' },
-    { id: 'f2', fighterId: '2', fighterName: 'Sarah Connor', competitionId: 'c1', fightNumber: 12, ring: 'B', helmetColor: 'Bleu', status: 'Pending', opponentName: 'Jane Smith' }
-  ]);
-  
-  // FFKMDA Module State
-  const [isScanning, setIsScanning] = useState(false);
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [apiToken, setApiToken] = useState('');
-  const [apiStatus, setApiStatus] = useState<'IDLE' | 'READY' | 'ERROR'>('IDLE');
-  
-  // Login FFKMDA State
-  const [fedEmail, setFedEmail] = useState('0172055');
-  const [fedPass, setFedPass] = useState('CyberaxGundam69*');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  // Competitors Data
+  const [fights, setFights] = useState<Fight[]>([]);
   const [competitors, setCompetitors] = useState<User[]>([]);
 
-  // --- INIT ---
-  useEffect(() => {
-     // 1. Load Members
-     const storedUsers = localStorage.getItem('smg_users');
-     const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
-     const mappedInitial = INITIAL_MEMBERS.map(m => ({ id: m.id, name: m.name, category: m.category } as User));
-     
-     // Merge et filter
-     const allComps = [...mappedInitial, ...localUsers].filter((u, index, self) => 
-        index === self.findIndex((t) => t.id === u.id) && (u.category === 'Compétiteur' || u.category === 'Pro')
-     );
-     setCompetitors(allComps);
+  // Formulaire Planning
+  const [newCompName, setNewCompName] = useState('');
+  const [newCompDiscipline, setNewCompDiscipline] = useState('Kick-Boxing');
+  const [newCompDate, setNewCompDate] = useState('');
+  const [newCompLocation, setNewCompLocation] = useState('');
+  const [weighInDayBefore, setWeighInDayBefore] = useState(false);
 
-     // 2. Load API Token
-     const storedToken = localStorage.getItem('ffkmda_token');
-     if (storedToken) {
-       setApiToken(storedToken);
-       setApiStatus('READY');
-     }
-     
-     // 3. Load Saved Competitions
-     const storedComps = localStorage.getItem('smg_competitions');
-     if (storedComps) {
-       const parsedComps = JSON.parse(storedComps);
-       if (parsedComps.length > 0) {
-           setCompetitions(parsedComps);
-           // Si on a sauvegardé une sélection, on essaie de la restaurer, sinon le premier
-           setSelectedCompId(parsedComps[0].id);
-       }
-     }
+  const AREAS = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
+
+  useEffect(() => {
+    const storedUsers = localStorage.getItem('smg_users');
+    const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
+    const mappedInitial = INITIAL_MEMBERS.map(m => ({ id: m.id, name: m.name, category: m.category, role: 'Member' } as User));
+    const allComps = [...mappedInitial, ...localUsers].filter((u, index, self) => 
+      index === self.findIndex((t) => t.id === u.id) && (u.category === 'Compétiteur' || u.category === 'Pro')
+    );
+    setCompetitors(allComps);
+
+    const storedFights = localStorage.getItem('smg_fights');
+    if (storedFights) setFights(JSON.parse(storedFights));
+
+    const storedComps = localStorage.getItem('smg_competitions');
+    if (storedComps) {
+      setCompetitions(JSON.parse(storedComps));
+    }
   }, []);
 
-  // --- FFKMDA ACTIONS ---
+  useEffect(() => {
+    localStorage.setItem('smg_fights', JSON.stringify(fights));
+  }, [fights]);
 
-  const handleFederationLogin = async (e: React.FormEvent) => {
+  const sortedCompetitions = useMemo(() => {
+    return [...competitions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [competitions]);
+
+  const handleAddCompetition = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fedEmail || !fedPass) return alert("Email et mot de passe requis");
+    if (!newCompName || !newCompDate) return;
 
-    setIsLoggingIn(true);
-    setApiStatus('IDLE');
+    const newComp: Competition = {
+      id: Date.now().toString(),
+      name: newCompName,
+      discipline: newCompDiscipline,
+      date: newCompDate,
+      location: newCompLocation || 'Non précisé',
+      weighInDayBefore: weighInDayBefore
+    };
+
+    const updatedComps = [...competitions, newComp];
+    setCompetitions(updatedComps);
+    localStorage.setItem('smg_competitions', JSON.stringify(updatedComps));
+
+    // Ajouter à l'agenda auto
+    const storedEvents = localStorage.getItem('smg_calendar_events');
+    const currentEvents: CalendarEvent[] = storedEvents ? JSON.parse(storedEvents) : [];
     
-    try {
-      const token = await loginFFKMDA(fedEmail, fedPass);
-      setApiToken(token);
-      localStorage.setItem('ffkmda_token', token);
-      setApiStatus('READY');
-      alert("Connexion réussie ! Token récupéré.");
-    } catch (error: any) {
-      console.error(error);
-      setApiStatus('ERROR');
-      
-      if (error.message === "ENDPOINT_NOT_FOUND") {
-        alert("Impossible de se connecter automatiquement.\n\nSOLUTION : Collez le token 'Bearer' depuis F12 > Network dans le champ Manuel.");
-      } else if (error.message === "BAD_CREDENTIALS") {
-        alert("Identifiants incorrects.");
-      } else {
-        alert("Erreur réseau.");
-      }
-    } finally {
-      setIsLoggingIn(false);
+    const competitionEvent: CalendarEvent = {
+      id: `evt-${newComp.id}`,
+      title: `${newCompDiscipline}: ${newCompName}`,
+      date: newCompDate,
+      type: 'Tournament',
+      description: `Lieu: ${newCompLocation}`
+    };
+
+    let eventsToAdd = [competitionEvent];
+
+    // Gérer la pesée la veille
+    if (weighInDayBefore) {
+       const compDate = new Date(newCompDate);
+       compDate.setDate(compDate.getDate() - 1);
+       const weighInDateStr = compDate.toISOString().split('T')[0];
+       
+       eventsToAdd.push({
+          id: `weigh-${newComp.id}`,
+          title: `PESÉE : ${newCompName}`,
+          date: weighInDateStr,
+          type: 'Tournament',
+          description: `Pesée officielle la veille à ${newCompLocation}`
+       });
     }
+
+    localStorage.setItem('smg_calendar_events', JSON.stringify([...currentEvents, ...eventsToAdd]));
+
+    // Ajouter aux annonces auto
+    const storedAnns = localStorage.getItem('smg_announcements');
+    const currentAnns: Announcement[] = storedAnns ? JSON.parse(storedAnns) : [];
+    const newAnn: Announcement = {
+      id: `ann-${newComp.id}`,
+      title: `Nouvelle Compétition : ${newCompName}`,
+      content: `Discipline: ${newCompDiscipline} | Date: ${new Date(newCompDate).toLocaleDateString()}${weighInDayBefore ? ' (Pesée la veille)' : ''} | Lieu: ${newCompLocation}. Préparez-vous !`,
+      date: new Date().toLocaleDateString(),
+      author: currentUser.name,
+      priority: 'High'
+    };
+    localStorage.setItem('smg_announcements', JSON.stringify([...currentAnns, newAnn]));
+
+    // NOTIFICATION PUSH
+    sendPushNotification("Nouvelle Compétition !", `${newCompName} - ${newCompDiscipline} le ${new Date(newCompDate).toLocaleDateString()}`);
+
+    setNewCompName('');
+    setNewCompDate('');
+    setNewCompLocation('');
+    setWeighInDayBefore(false);
+    alert('Compétition ajoutée et membres notifiés !');
   };
 
-  const handleSaveTokenManual = () => {
-    const cleanToken = apiToken.replace('Bearer ', '').trim();
-    if (cleanToken.length > 20) {
-      setApiToken(cleanToken);
-      localStorage.setItem('ffkmda_token', cleanToken);
-      setApiStatus('READY');
-      alert('Token API sauvegardé.');
-    } else {
-      alert('Token invalide.');
-    }
-  };
-
-  // Importe la liste des compétitions (ID 900 inclus normalement via fetchAllData)
-  const handleImportCompetitions = async () => {
-    if (apiStatus !== 'READY') return alert("Veuillez d'abord configurer le Token API.");
+  const getAutoStage = (fighterId: string, currentFightId: string): FightStage => {
+    const fighterFights = fights
+      .filter(f => f.fighterId === fighterId && f.competitionId === selectedCompId)
+      .sort((a, b) => a.fightNumber - b.fightNumber);
     
-    setIsScanning(true);
-    try {
-      const activeComps = await getActiveCompetitions(apiToken);
-      
-      if (activeComps.length > 0) {
-        // Fusion intelligente
-        const merged = [...competitions];
-        let addedCount = 0;
-        
-        activeComps.forEach(newC => {
-          if (!merged.find(c => c.ffkmdaId === newC.ffkmdaId)) {
-            merged.push(newC);
-            addedCount++;
-          }
-        });
-        
-        // Trier par date (plus récent en premier)
-        merged.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const index = fighterFights.findIndex(f => f.id === currentFightId);
+    const total = fighterFights.length;
+    const reverseIndex = total - 1 - index;
 
-        setCompetitions(merged);
-        localStorage.setItem('smg_competitions', JSON.stringify(merged));
-        
-        alert(`${addedCount} nouvelles compétitions trouvées.`);
-        if (merged.length > 0) setSelectedCompId(merged[0].id);
-
-      } else {
-        alert("Aucune compétition trouvée. Vérifiez le token ou la saison.");
-      }
-    } catch (e) {
-      alert("Erreur import compétitions.");
-      setApiStatus('ERROR');
-    } finally {
-      setIsScanning(false);
-    }
+    if (reverseIndex === 0) return 'Finale';
+    if (reverseIndex === 1) return 'Demi-finale';
+    if (reverseIndex === 2) return '1/4 de finale';
+    if (reverseIndex === 3) return '1/8 de finale';
+    return 'Eliminatoire';
   };
 
-  // Importe les compétiteurs INSCRITS à la compétition sélectionnée (ex: ID 900)
-  const handleImportCompetitors = async () => {
-    if (apiStatus !== 'READY') return alert("Token requis.");
-    
-    const currentComp = competitions.find(c => c.id === selectedCompId);
-    if (!currentComp || !currentComp.ffkmdaId) {
-      return alert("Sélectionnez une compétition fédérale (ID 900...) dans le menu déroulant.");
-    }
-
-    setIsScanning(true);
-    try {
-        const regs = await getCompetitionRegistrations(currentComp.ffkmdaId, apiToken);
-        
-        if (regs.length > 0) {
-            const newCompetitors = [...competitors];
-            let added = 0;
-
-            regs.forEach((reg: any) => {
-                // On vérifie si le compétiteur existe déjà par nom (approximatif)
-                const exists = newCompetitors.find(c => c.name.toLowerCase() === reg.name.toLowerCase());
-                if (!exists) {
-                    newCompetitors.push(reg);
-                    added++;
-                }
-            });
-
-            setCompetitors(newCompetitors);
-            // On sauvegarde aussi dans le localStorage global des users pour persistance
-            localStorage.setItem('smg_users', JSON.stringify(newCompetitors));
-            
-            alert(`${added} nouveaux compétiteurs importés depuis la compétition ${currentComp.ffkmdaId}.`);
-        } else {
-            alert("Aucun inscrit trouvé pour cette compétition.");
-        }
-    } catch(e) {
-        alert("Erreur lors de la récupération des inscrits.");
-    } finally {
-        setIsScanning(false);
-    }
-  };
-
-  const handleAutoScanMatches = async () => {
-    if (apiStatus !== 'READY') return alert("Token requis.");
-    
-    const currentComp = competitions.find(c => c.id === selectedCompId);
-    if (!currentComp || !currentComp.ffkmdaId) {
-      return alert("Compétition non valide pour le scan.");
-    }
-
-    setIsScanning(true);
-    try {
-      const apiMatches = await getCompetitionMatches(currentComp.ffkmdaId, apiToken);
-      
-      const newFights: Fight[] = [];
-      let updatesCount = 0;
-
-      apiMatches.forEach(match => {
-        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
-        const p1NameNorm = normalize(match.fighter1);
-        const p2NameNorm = normalize(match.fighter2);
-
-        // On cherche si un de NOS compétiteurs est dans le match
-        const myFighter = competitors.find(c => {
-           const cNameNorm = normalize(c.name);
-           return p1NameNorm.includes(cNameNorm) || p2NameNorm.includes(cNameNorm);
-        });
-
-        if (myFighter) {
-          updatesCount++;
-          const isP1 = p1NameNorm.includes(normalize(myFighter.name));
-          const opponent = isP1 ? match.fighter2 : match.fighter1;
-          const color = isP1 ? 'Rouge' : 'Bleu';
-
-          newFights.push({
-            id: `auto-${match.externalId || Date.now()}`,
-            fighterId: myFighter.id,
-            fighterName: myFighter.name,
-            competitionId: selectedCompId,
-            fightNumber: match.order,
-            ring: match.ring,
-            helmetColor: color,
-            opponentName: opponent,
-            status: match.status === 'finished' ? 'Finished' : match.status === 'current' ? 'Ongoing' : 'Pending',
-            isAutoImported: true
-          });
-        }
-      });
-
-      if (updatesCount > 0) {
-        setFights(prev => {
-           // On retire les anciens matchs auto de CETTE compétition pour éviter doublons
-           const others = prev.filter(f => !(f.competitionId === selectedCompId && f.isAutoImported));
-           return [...others, ...newFights];
-        });
-        alert(`Scan terminé : ${updatesCount} combats mis à jour.`);
-      } else {
-        alert("Aucun de vos compétiteurs détecté dans le planning.");
-      }
-
-    } catch (e) {
-      alert("Erreur lors du scan du planning.");
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  // --- MANUAL ACTIONS ---
   const handleUpdateFight = (id: string, field: keyof Fight, value: any) => {
-    setFights(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
+    let finalValue = value;
+    if (field === 'fightNumber') finalValue = Math.floor(Number(value)) || 0;
+    setFights(prev => prev.map(f => f.id === id ? { ...f, [field]: finalValue } : f));
   };
 
-  const addFight = () => {
+  const addFightForCompetitor = (fighter: User) => {
     const newFight: Fight = {
       id: Math.random().toString(36).substr(2, 9),
-      fighterId: competitors[0]?.id || 'unknown',
-      fighterName: competitors[0]?.name || 'Inconnu',
+      fighterId: fighter.id,
+      fighterName: fighter.name,
       competitionId: selectedCompId,
-      fightNumber: 0,
-      ring: 'A',
-      helmetColor: 'Rouge',
-      status: 'Pending'
+      fightNumber: 1,
+      ring: '1',
+      helmetColor: 'Inconnu',
+      status: 'Pending',
+      isLocked: false
     };
     setFights([...fights, newFight]);
   };
 
-  const deleteFight = (id: string) => {
-    if(confirm('Supprimer ce combat ?')) {
-       setFights(prev => prev.filter(f => f.id !== id));
-    }
+  const setFightResult = (id: string, result: 'Victoire' | 'Défaite') => {
+    setFights(prev => prev.map(f => f.id === id ? { ...f, result, status: 'Finished' } : f));
   };
 
-  const filteredFights = fights.filter(f => f.competitionId === selectedCompId).sort((a, b) => a.fightNumber - b.fightNumber);
-  const currentCompetitionName = competitions.find(c => c.id === selectedCompId)?.name || 'Compétition';
+  const toggleLock = (id: string) => {
+    setFights(prev => prev.map(f => f.id === id ? { ...f, isLocked: !f.isLocked } : f));
+  };
 
-  // --- RENDER ---
+  const liveFights = useMemo(() => 
+    fights.filter(f => f.competitionId === selectedCompId && f.status !== 'Finished'), 
+  [fights, selectedCompId]);
+
+  const alerts = useMemo(() => {
+    const conflicts: string[] = [];
+    const preps: string[] = [];
+    const byNum: Record<number, string[]> = {};
+    liveFights.forEach(f => {
+      if (f.fightNumber > 0) {
+        if (!byNum[f.fightNumber]) byNum[f.fightNumber] = [];
+        byNum[f.fightNumber].push(f.ring);
+      }
+    });
+    Object.entries(byNum).forEach(([num, rings]) => {
+      if (new Set(rings).size > 1) conflicts.push(`Conflit : Combats simultanés au n°${num} !`);
+    });
+    for (let i = 0; i < liveFights.length; i++) {
+      for (let j = i + 1; j < liveFights.length; j++) {
+        const f1 = liveFights[i];
+        const f2 = liveFights[j];
+        if (f1.fightNumber > 0 && f2.fightNumber > 0) {
+          const diff = Math.abs(f1.fightNumber - f2.fightNumber);
+          if (diff <= 3) preps.push(`${f1.fighterName.split(' ')[0]} (#${f1.fightNumber}) et ${f2.fighterName.split(' ')[0]} (#${f2.fightNumber}) se suivent !`);
+        }
+      }
+    }
+    return { conflicts: [...new Set(conflicts)], preps: [...new Set(preps)] };
+  }, [liveFights]);
+
+  const palmares = useMemo(() => {
+    const finished = fights.filter(f => f.competitionId === selectedCompId && f.status === 'Finished');
+    const stats: Record<string, {name: string, gold: number, silver: number, bronze: number, total: number}> = {};
+    finished.forEach(f => {
+      const stage = getAutoStage(f.fighterId, f.id);
+      if (!stats[f.fighterId]) stats[f.fighterId] = { name: f.fighterName, gold: 0, silver: 0, bronze: 0, total: 0 };
+      stats[f.fighterId].total++;
+      if (f.result === 'Victoire') {
+        if (stage === 'Finale') stats[f.fighterId].gold++;
+      } else {
+        if (stage === 'Finale') stats[f.fighterId].silver++;
+        else if (stage === 'Demi-finale') stats[f.fighterId].bronze++;
+      }
+    });
+    return Object.values(stats).sort((a, b) => b.gold - a.gold || b.silver - a.silver);
+  }, [fights, selectedCompId]);
+
   return (
-    <div className="p-4 pb-24 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-4">
+    <div className="p-4 pb-24 h-full flex flex-col max-w-lg mx-auto">
+      {/* HEADER & SELECTOR */}
+      <div className="flex justify-between items-center mb-6">
         <div>
-           <h2 className="text-xl font-bold text-white uppercase tracking-wider">COMPÉTITIONS</h2>
-           <p className="text-[10px] text-cyan-400 font-mono">
-             {isStaff ? 'MODE GESTION (ADMIN)' : 'MODE COMPÉTITEUR (LIVE)'}
-           </p>
+           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arena</h2>
+           <div className="flex items-center space-x-2">
+             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+             <span className="text-[10px] text-slate-400 font-mono uppercase tracking-widest leading-none">Live System v2.3</span>
+           </div>
         </div>
-        <div className="flex gap-2">
-           {isStaff && (
-             <button 
-               onClick={() => setShowApiSettings(!showApiSettings)}
-               className={`p-2 rounded border ${apiStatus === 'READY' ? 'border-green-500 bg-green-900/20 text-green-500' : 'border-slate-600 bg-slate-800 text-slate-400'}`}
-             >
-               <Settings size={16} />
-             </button>
-           )}
-           <select 
-            value={selectedCompId} 
-            onChange={(e) => setSelectedCompId(e.target.value)}
-            className="bg-slate-800 text-xs text-white p-2 rounded border border-slate-600 max-w-[150px] truncate"
-           >
-            {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-           </select>
-        </div>
+        <select 
+          value={selectedCompId} 
+          onChange={(e) => setSelectedCompId(e.target.value)}
+          className="bg-slate-900 text-xs text-cyan-400 font-bold p-2 rounded-xl border border-slate-800 outline-none max-w-[140px] shadow-lg"
+        >
+          {sortedCompetitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
 
-      {/* --- API SETTINGS MODAL (Inline) --- */}
-      {showApiSettings && isStaff && (
-        <FuturisticCard className="mb-4 animate-fade-in" borderColor="cyan" title="CONNEXION FÉDÉRATION">
-           <div className="space-y-4">
-             {/* LOGIN FORM - Masqué si connecté manuellement pour gagner place */}
-             {apiStatus !== 'READY' && (
-                <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
-                  <form onSubmit={handleFederationLogin} className="space-y-2">
-                    <input type="text" placeholder="Email / ID" value={fedEmail} onChange={e => setFedEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
-                    <input type="password" placeholder="Mot de passe" value={fedPass} onChange={e => setFedPass(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
-                    <button type="submit" disabled={isLoggingIn} className="w-full bg-cyan-600 text-white rounded py-2 text-xs font-bold">{isLoggingIn ? '...' : 'CONNEXION AUTO'}</button>
-                  </form>
-                </div>
-             )}
-
-             {/* MANUAL TOKEN */}
-             <div className="flex gap-2">
-               <div className="relative flex-1">
-                 <Key className="absolute left-3 top-2.5 text-slate-500" size={14} />
-                 <input 
-                   type="text" 
-                   value={apiToken}
-                   onChange={e => setApiToken(e.target.value)}
-                   className="w-full bg-slate-950 border border-slate-700 rounded py-2 pl-9 pr-2 text-[10px] text-white font-mono"
-                   placeholder="Token Bearer..."
-                 />
-               </div>
-               <button onClick={handleSaveTokenManual} className="bg-slate-700 text-white px-3 rounded text-xs font-bold">OK</button>
+      {/* ALERTES SECTION */}
+      {(alerts.conflicts.length > 0 || alerts.preps.length > 0) && activeTab === 'TIMELINE' && (
+        <div className="mb-6 space-y-2">
+           {alerts.conflicts.map((m, i) => (
+             <div key={i} className="bg-rose-600 text-white text-[10px] font-black p-2 rounded-lg flex items-center shadow-lg italic">
+               <AlertTriangle size={14} className="mr-2 shrink-0" /> {m.toUpperCase()}
              </div>
-
-             <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
-               {/* BOUTON 1 : RECUP LISTE COMPETITIONS */}
-               <button 
-                 onClick={handleImportCompetitions} 
-                 disabled={isScanning || apiStatus !== 'READY'}
-                 className="flex flex-col items-center justify-center p-2 bg-slate-800 rounded hover:bg-slate-700 disabled:opacity-50"
-               >
-                 <CloudDownload size={16} className="text-cyan-400 mb-1"/>
-                 <span className="text-[9px] text-center">MAJ Compétitions</span>
-               </button>
-
-               {/* BOUTON 2 : RECUP COMPETITEURS DE L'EVENT */}
-               <button 
-                 onClick={handleImportCompetitors} 
-                 disabled={isScanning || apiStatus !== 'READY'}
-                 className="flex flex-col items-center justify-center p-2 bg-slate-800 rounded hover:bg-slate-700 disabled:opacity-50"
-               >
-                 <Users size={16} className="text-rose-400 mb-1"/>
-                 <span className="text-[9px] text-center">Importer Inscrits ({competitions.find(c=>c.id===selectedCompId)?.ffkmdaId || '?'})</span>
-               </button>
+           ))}
+           {alerts.preps.map((m, i) => (
+             <div key={i} className="bg-amber-500 text-slate-950 text-[10px] font-black p-2 rounded-lg flex items-center shadow-lg italic">
+               <Zap size={14} className="mr-2 shrink-0" /> {m.toUpperCase()}
              </div>
-           </div>
-        </FuturisticCard>
+           ))}
+        </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex space-x-2 mb-6 bg-slate-900/50 p-1 rounded-xl">
+      {/* TABS NAVIGATION */}
+      <div className="flex space-x-1 mb-6 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
         {isStaff && (
-          <button
-            onClick={() => setActiveTab('GESTION')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'GESTION' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('PLANNING')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'PLANNING' ? 'bg-purple-600 text-white shadow-xl' : 'text-slate-500'}`}>
+            PLANNING
+          </button>
+        )}
+        {isStaff && (
+          <button onClick={() => setActiveTab('GESTION')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'GESTION' ? 'bg-slate-100 text-slate-950 shadow-xl' : 'text-slate-500'}`}>
             GESTION
           </button>
         )}
-        <button
-          onClick={() => setActiveTab('TIMELINE')}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-        >
+        <button onClick={() => setActiveTab('TIMELINE')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-xl' : 'text-slate-500'}`}>
           TIMELINE
         </button>
-        <button
-          onClick={() => setActiveTab('PALMARES')}
-          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'PALMARES' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          PALMARES
+        <button onClick={() => setActiveTab('PALMARES')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'PALMARES' ? 'bg-amber-500 text-slate-950 shadow-xl' : 'text-slate-500'}`}>
+          PALMARÈS
         </button>
       </div>
 
-      {/* --- GESTION VIEW (ADMIN ONLY) --- */}
-      {activeTab === 'GESTION' && isStaff && (
-        <div className="space-y-4">
-          <div className="flex justify-between gap-2">
-            <button 
-               onClick={handleAutoScanMatches} 
-               disabled={isScanning || apiStatus !== 'READY'}
-               className={`flex-1 flex items-center justify-center text-xs border px-3 py-3 rounded transition-colors disabled:opacity-50 ${
-                 apiStatus === 'READY' 
-                   ? 'bg-slate-800 border-green-500/50 text-green-400 hover:bg-slate-700' 
-                   : 'bg-slate-900 border-slate-700 text-slate-500'
-               }`}
-            >
-              <RefreshCw size={14} className={`mr-2 ${isScanning ? 'animate-spin' : ''}`}/> 
-              {isScanning ? 'SCAN EN COURS...' : 'SCAN PLANNING'}
-            </button>
-            <button onClick={addFight} className="flex-1 flex items-center justify-center text-xs bg-slate-800 border border-slate-600 px-3 py-3 rounded text-cyan-400 hover:bg-slate-700">
-              <Plus size={14} className="mr-1"/> AJOUT MANUEL
-            </button>
-          </div>
+      {/* CONTENU : PLANNING */}
+      {activeTab === 'PLANNING' && isStaff && (
+        <div className="space-y-6 animate-fade-in">
+           <FuturisticCard title="PLANIFIER TOURNOI" borderColor="cyan">
+              <form onSubmit={handleAddCompetition} className="space-y-4">
+                 <div>
+                    <label className="text-[9px] text-slate-500 font-black mb-1 block uppercase">Nom de l'événement</label>
+                    <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="ex: Championnat de France" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white" required />
+                 </div>
+                 <div className="grid grid-cols-2 gap-2">
+                    <div>
+                       <label className="text-[9px] text-slate-500 font-black mb-1 block uppercase">Discipline</label>
+                       <select value={newCompDiscipline} onChange={e => setNewCompDiscipline(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white outline-none">
+                          <option>Kick-Boxing</option>
+                          <option>K1-Rules</option>
+                          <option>Full Contact</option>
+                          <option>Light Contact</option>
+                          <option>Kick Light</option>
+                       </select>
+                    </div>
+                    <div>
+                       <label className="text-[9px] text-slate-500 font-black mb-1 block uppercase">Date</label>
+                       <input type="date" value={newCompDate} onChange={e => setNewCompDate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white" required />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="text-[9px] text-slate-500 font-black mb-1 block uppercase">Lieu</label>
+                    <input type="text" value={newCompLocation} onChange={e => setNewCompLocation(e.target.value)} placeholder="Ville, Gymnase..." className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white" />
+                 </div>
+                 
+                 <div className="flex items-center space-x-3 bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                    <Scale size={18} className="text-cyan-400" />
+                    <div className="flex-1">
+                       <span className="text-[10px] font-black text-slate-100 block uppercase italic">Pesée officielle la veille</span>
+                       <span className="text-[8px] text-slate-500 font-mono uppercase">Ajoute automatiquement l'événement à J-1</span>
+                    </div>
+                    <button type="button" onClick={() => setWeighInDayBefore(!weighInDayBefore)} className={`w-10 h-5 rounded-full p-1 transition-colors ${weighInDayBefore ? 'bg-cyan-600' : 'bg-slate-800'}`}>
+                      <div className={`w-3 h-3 bg-white rounded-full transition-transform ${weighInDayBefore ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                 </div>
 
-          <div className="text-[10px] text-slate-500 text-center italic">
-             {apiStatus === 'READY' ? `Connecté (Event ID: ${competitions.find(c=>c.id===selectedCompId)?.ffkmdaId})` : 'API Déconnectée'}
-          </div>
-          
-          {filteredFights.map((fight) => (
-            <FuturisticCard key={fight.id} className="relative group" borderColor={fight.helmetColor === 'Rouge' ? 'rose' : fight.helmetColor === 'Bleu' ? 'cyan' : 'slate'}>
-                <div className="absolute top-2 right-2 flex space-x-2">
-                   {fight.isAutoImported && (
-                     <span title="Importé via FFKMDA">
-                       <Globe size={14} className="text-green-500" />
-                     </span>
-                   )}
-                   <button onClick={() => deleteFight(fight.id)} className="text-slate-600 hover:text-rose-500"><Trash2 size={14}/></button>
-                </div>
+                 <button type="submit" className="w-full bg-cyan-600 text-white font-black py-3 rounded-xl shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-xs uppercase italic">Valider & Notifier le club</button>
+              </form>
+           </FuturisticCard>
 
-                <div className="grid grid-cols-[1fr_auto] gap-2 items-center mb-2 pr-8">
-                   <div className="font-bold text-sm text-white">{fight.fighterName}</div>
-                   <div className="text-xs text-slate-400 font-mono">#{fight.fightNumber}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="text-slate-500 block mb-1">Adversaire</label>
-                    <input 
-                      type="text" 
-                      value={fight.opponentName || ''} 
-                      onChange={(e) => handleUpdateFight(fight.id, 'opponentName', e.target.value)}
-                      className="bg-slate-950 border border-slate-700 rounded w-full p-1 text-slate-300"
-                    />
-                  </div>
+           <div className="space-y-3">
+              <h4 className="text-[10px] text-slate-400 font-mono tracking-widest uppercase mb-2 px-1">Historique / Planning</h4>
+              {sortedCompetitions.map(c => (
+                <div key={c.id} className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
                    <div>
-                    <label className="text-slate-500 block mb-1">Compétiteur</label>
-                    <select
-                      value={fight.fighterId}
-                      onChange={(e) => {
-                         const selected = competitors.find(c => c.id === e.target.value);
-                         handleUpdateFight(fight.id, 'fighterId', e.target.value);
-                         if(selected) handleUpdateFight(fight.id, 'fighterName', selected.name);
-                      }}
-                      className="bg-slate-950 border border-slate-700 rounded w-full p-1 text-slate-300"
-                    >
-                      {competitors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-slate-500 block mb-1">Aire / Ring</label>
-                    <select 
-                       value={fight.ring}
-                       onChange={(e) => handleUpdateFight(fight.id, 'ring', e.target.value)}
-                       className="bg-slate-950 border border-slate-700 rounded w-full p-1 text-slate-300"
-                    >
-                      <option value="A">Ring A</option>
-                      <option value="B">Ring B</option>
-                      <option value="C">Ring C</option>
-                      {/* Cas où l'API renvoie autre chose */}
-                      {fight.isAutoImported && !['A','B','C'].includes(fight.ring) && (
-                         <option value={fight.ring}>{fight.ring}</option>
-                      )}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-slate-500 block mb-1">Ordre</label>
-                    <input 
-                      type="number" 
-                      value={fight.fightNumber} 
-                      onChange={(e) => handleUpdateFight(fight.id, 'fightNumber', parseInt(e.target.value))}
-                      className="bg-slate-950 border border-slate-700 rounded w-full p-1 text-slate-300"
-                    />
-                  </div>
-                  <div className="col-span-2 flex space-x-2 mt-1">
-                     <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Rouge')} className={`flex-1 py-1 rounded border text-[10px] font-bold ${fight.helmetColor === 'Rouge' ? 'bg-red-900/50 border-red-500 text-white' : 'border-slate-700 text-slate-500'}`}>ROUGE</button>
-                     <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Bleu')} className={`flex-1 py-1 rounded border text-[10px] font-bold ${fight.helmetColor === 'Bleu' ? 'bg-blue-900/50 border-blue-500 text-white' : 'border-slate-700 text-slate-500'}`}>BLEU</button>
-                  </div>
+                      <div className="text-xs font-black text-white italic leading-tight">{c.name}</div>
+                      <div className="text-[9px] text-slate-500 font-mono uppercase mt-1">
+                         {new Date(c.date).toLocaleDateString()} • {c.discipline}
+                         {c.weighInDayBefore && <span className="text-cyan-600 ml-2"> + Pesée J-1</span>}
+                      </div>
+                   </div>
+                   <button onClick={() => {
+                     if(confirm('Supprimer cette compétition ?')) {
+                       const filtered = competitions.filter(comp => comp.id !== c.id);
+                       setCompetitions(filtered);
+                       localStorage.setItem('smg_competitions', JSON.stringify(filtered));
+                     }
+                   }} className="text-slate-600 hover:text-rose-500 p-2 transition-colors">
+                      <Trash2 size={14} />
+                   </button>
                 </div>
-            </FuturisticCard>
-          ))}
+              ))}
+           </div>
         </div>
       )}
 
-      {/* --- TIMELINE VIEW --- */}
-      {activeTab === 'TIMELINE' && (
-        <div className="space-y-6">
-          <div className="text-center mb-4">
-            <h3 className="text-lg font-bold text-white">{currentCompetitionName}</h3>
-            <span className="text-xs text-slate-500">Ordre de passage en temps réel</span>
-          </div>
-
-          {['A', 'B', 'C'].map(ring => {
-            const ringFights = filteredFights.filter(f => f.ring === ring);
-            if(ringFights.length === 0) return null;
-
+      {/* CONTENU : GESTION */}
+      {activeTab === 'GESTION' && isStaff && (
+        <div className="space-y-8 animate-fade-in">
+          {competitors.map(competitor => {
+            const compFights = fights.filter(f => f.competitionId === selectedCompId && f.fighterId === competitor.id);
             return (
-              <div key={ring} className="space-y-2">
-                 <h3 className="text-sm font-mono text-slate-400 border-b border-slate-800 pb-1 flex justify-between">
-                    <span>RING {ring}</span>
-                    <span className="text-[10px] opacity-50">{ringFights.length} combats</span>
-                 </h3>
-                 <div className="space-y-2 pl-2 border-l-2 border-slate-800 ml-2">
-                    {ringFights.map(fight => (
-                       <div key={fight.id} className="relative pl-4 py-2 group">
-                           {/* Status Dot */}
-                           <div className={`absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 z-10 ${fight.status === 'Finished' ? 'bg-slate-700 border-slate-500' : fight.status === 'Ongoing' ? 'bg-green-500 border-green-300 animate-pulse' : 'bg-slate-900 border-slate-600'}`}></div>
-                           
-                           <div className={`text-sm font-bold ${fight.helmetColor === 'Rouge' ? 'text-rose-400' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-300'}`}>
-                             #{fight.fightNumber} - {fight.fighterName}
+              <div key={competitor.id} className="space-y-4">
+                <div className="flex justify-between items-end border-b border-slate-800 pb-2 px-1">
+                   <div className="flex flex-col">
+                      <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Fighter Profile</span>
+                      <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">{competitor.name}</h3>
+                   </div>
+                   <button onClick={() => addFightForCompetitor(competitor)} className="bg-cyan-600 text-white p-2 rounded-xl shadow-lg active:scale-90">
+                     <Plus size={20} />
+                   </button>
+                </div>
+                <div className="grid gap-3">
+                  {compFights.sort((a,b) => a.fightNumber - b.fightNumber).map((fight) => {
+                    const stage = getAutoStage(competitor.id, fight.id);
+                    return (
+                      <FuturisticCard key={fight.id} borderColor={fight.isLocked ? 'slate' : 'cyan'} className={`${fight.status === 'Finished' ? 'opacity-40 grayscale' : ''}`}>
+                         <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center space-x-2">
+                               <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
+                                  <Hash size={12} className="text-rose-500 mr-1"/>
+                                  <span className="text-[11px] font-black text-white">{fight.fightNumber || '??'}</span>
+                               </div>
+                               <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
+                                  <MapPin size={12} className="text-cyan-400 mr-1"/>
+                                  <span className="text-[11px] font-black text-white">AIRE {fight.ring}</span>
+                               </div>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                               <button onClick={() => toggleLock(fight.id)} className={`p-1.5 rounded ${fight.isLocked ? 'text-green-500' : 'text-slate-600'}`}>
+                                 {fight.isLocked ? <Lock size={16}/> : <Unlock size={16}/>}
+                               </button>
+                               {!fight.isLocked && <button onClick={() => setFights(prev => prev.filter(f => f.id !== fight.id))} className="p-1.5 text-rose-500"><Trash2 size={16}/></button>}
+                            </div>
+                         </div>
+                         <div className="flex justify-between items-center">
+                            <div className="flex flex-col">
+                               <span className={`text-xl font-black italic tracking-tighter leading-none mb-1 ${fight.helmetColor === 'Rouge' ? 'text-rose-500' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-100'}`}>
+                                 {fight.fighterName}
+                               </span>
+                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stage}</span>
+                            </div>
+                            {fight.status !== 'Finished' && !fight.isLocked ? (
+                              <div className="flex flex-col items-end gap-2">
+                                 <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                                   <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Rouge')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Rouge' ? 'bg-rose-600 text-white' : 'text-slate-600'}`}>R</button>
+                                   <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Bleu')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white' : 'text-slate-600'}`}>B</button>
+                                 </div>
+                                 <div className="flex gap-1">
+                                    <input type="number" step="1" min="1" placeholder="#" value={fight.fightNumber} onChange={e => handleUpdateFight(fight.id, 'fightNumber', e.target.value)} className="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold"/>
+                                    <select value={fight.ring} onChange={e => handleUpdateFight(fight.id, 'ring', e.target.value)} className="w-16 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold outline-none">
+                                       {AREAS.map(num => <option key={num} value={num}>A.{num}</option>)}
+                                    </select>
+                                 </div>
+                              </div>
+                            ) : fight.status !== 'Finished' ? (
+                               <div className="flex gap-2">
+                                  <button onClick={() => setFightResult(fight.id, 'Victoire')} className="bg-green-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><CheckCircle2 size={18}/></button>
+                                  <button onClick={() => setFightResult(fight.id, 'Défaite')} className="bg-rose-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><XCircle size={18}/></button>
+                               </div>
+                            ) : (
+                               <div className={`px-3 py-1 rounded-lg font-black text-[10px] italic shadow-lg ${fight.result === 'Victoire' ? 'bg-green-600 text-white' : 'bg-rose-600 text-white'}`}>
+                                 {fight.result?.toUpperCase()}
+                               </div>
+                            )}
+                         </div>
+                      </FuturisticCard>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* TIMELINE */}
+      {activeTab === 'TIMELINE' && (
+        <div className="space-y-10 animate-fade-in">
+          {AREAS.map(ringNum => {
+            const ringFights = liveFights.filter(f => f.ring === ringNum).sort((a,b) => a.fightNumber - b.fightNumber);
+            if (ringFights.length === 0) return null;
+            return (
+              <div key={ringNum} className="space-y-4">
+                 <div className="flex items-center justify-between border-b border-slate-800 pb-2 px-1">
+                    <h3 className="text-sm font-black text-cyan-400 italic flex items-center uppercase">
+                       <MapPin size={16} className="mr-2"/> AIRE {ringNum}
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">{ringFights.length} EN ATTENTE</span>
+                 </div>
+                 <div className="space-y-4">
+                    {ringFights.map(fight => {
+                      const stage = getAutoStage(fight.fighterId, fight.id);
+                      return (
+                        <div key={fight.id} className={`relative flex items-center p-4 bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl ${fight.helmetColor === 'Rouge' ? 'border-rose-500/20' : 'border-cyan-500/20'}`}>
+                           <div className={`absolute top-0 left-0 w-1 h-full ${fight.helmetColor === 'Rouge' ? 'bg-rose-600' : fight.helmetColor === 'Bleu' ? 'bg-cyan-500' : 'bg-slate-700'}`}></div>
+                           <div className="w-14 h-14 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col items-center justify-center mr-4 shrink-0 shadow-inner">
+                              <span className="text-[9px] text-slate-500 font-black">N°</span>
+                              <span className="text-xl font-black text-white leading-none">{fight.fightNumber}</span>
                            </div>
-                           <div className="text-xs text-slate-400"><span className="text-slate-600">vs</span> {fight.opponentName || '???'}</div>
-                           {currentUser.id === fight.fighterId && (<div className="mt-1 inline-block bg-yellow-500/20 text-yellow-400 text-[10px] px-2 rounded border border-yellow-500/30 animate-pulse">🔥 C'EST TON TOUR !</div>)}
-                       </div>
-                    ))}
+                           <div className="flex-1">
+                              <h4 className={`text-xl font-black italic tracking-tighter leading-none mb-1 ${fight.helmetColor === 'Rouge' ? 'text-rose-500' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-100'}`}>
+                                {fight.fighterName}
+                              </h4>
+                              <div className="flex items-center space-x-2">
+                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stage}</span>
+                                 <span className={`text-[8px] px-1.5 py-0.5 rounded font-black border ${fight.helmetColor === 'Rouge' ? 'border-rose-500 text-rose-500' : 'border-cyan-500 text-cyan-400'}`}>COIN {fight.helmetColor.toUpperCase()}</span>
+                              </div>
+                           </div>
+                           {currentUser.id === fight.fighterId && <div className="bg-cyan-500/10 p-2 rounded-2xl animate-pulse border border-cyan-500/30"><Shield size={24} className="text-cyan-400" /></div>}
+                        </div>
+                      );
+                    })}
                  </div>
               </div>
-            )
+            );
           })}
-          {filteredFights.length === 0 && (
-            <div className="text-center text-slate-500 text-xs py-10 border border-dashed border-slate-800 rounded">
-              <p>Aucun combat planifié.</p>
-            </div>
-          )}
+          {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-600 opacity-30"><Trophy size={64} className="mb-4" /><p className="font-black italic uppercase tracking-widest">Arena Vide</p></div>}
         </div>
       )}
 
-      {/* --- PALMARES VIEW --- */}
+      {/* PALMARES */}
       {activeTab === 'PALMARES' && (
-        <div className="space-y-4">
-           {competitors.map(comp => (
-             <FuturisticCard key={comp.id}>
-               <div className="flex items-center space-x-3 mb-3">
-                 <Shield className="text-yellow-500" size={20} />
-                 <span className="font-bold text-lg">{comp.name}</span>
-               </div>
-               <div className="text-xs text-slate-400">
-                  <p>Catégorie : {comp.category}</p>
-                  <p className="mt-1 italic opacity-50">Historique des médailles...</p>
-               </div>
-             </FuturisticCard>
-           ))}
-           {competitors.length === 0 && <p className="text-slate-500 text-center text-sm">Aucun compétiteur enregistré. Utilisez "Importer Inscrits".</p>}
+        <div className="space-y-6 animate-fade-in">
+           <div className="flex items-center space-x-3 mb-6 px-1">
+              <div className="bg-amber-500/20 p-3 rounded-2xl border border-amber-500/30"><Award size={24} className="text-amber-500" /></div>
+              <h3 className="text-xl font-black text-white italic tracking-tighter uppercase">Résultats Club</h3>
+           </div>
+           <div className="grid gap-4">
+              {palmares.map((p, i) => (
+                <FuturisticCard key={i} borderColor={p.gold > 0 ? 'cyan' : 'slate'} className="bg-slate-950/40">
+                   <div className="flex justify-between items-center">
+                      <div>
+                         <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest block mb-1">Champion Profile</span>
+                         <h4 className="text-lg font-black text-white italic tracking-tighter uppercase leading-none">{p.name}</h4>
+                         <div className="flex gap-3 mt-3">
+                            {p.gold > 0 && <div className="flex items-center space-x-1 bg-yellow-500/10 border border-yellow-500/50 rounded-full px-2.5 py-1"><div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_8px_#eab308] animate-pulse"/><span className="text-[9px] font-black text-yellow-500 uppercase">Or</span></div>}
+                            {p.silver > 0 && <div className="flex items-center space-x-1 bg-slate-400/10 border border-slate-400/50 rounded-full px-2.5 py-1"><div className="w-2 h-2 rounded-full bg-slate-300"/><span className="text-[9px] font-black text-slate-300 uppercase">Argent</span></div>}
+                            {p.bronze > 0 && <div className="flex items-center space-x-1 bg-amber-700/10 border border-amber-700/50 rounded-full px-2.5 py-1"><div className="w-2 h-2 rounded-full bg-amber-700"/><span className="text-[9px] font-black text-amber-700 uppercase">Bronze</span></div>}
+                         </div>
+                      </div>
+                      <div className="text-right flex flex-col justify-center items-end bg-slate-900 p-3 rounded-2xl border border-slate-800 shadow-xl">
+                         <span className="text-[9px] text-slate-500 font-black uppercase mb-1">Victoires</span>
+                         <span className="text-2xl font-black text-white leading-none italic">{p.total - p.silver - p.bronze}</span>
+                      </div>
+                   </div>
+                </FuturisticCard>
+              ))}
+              {palmares.length === 0 && <p className="text-center py-20 text-slate-600 text-xs italic">En attente des premiers résultats...</p>}
+           </div>
         </div>
       )}
-
     </div>
   );
 };

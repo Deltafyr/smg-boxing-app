@@ -20,67 +20,64 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   category: 'Loisir' | 'Compétiteur' | 'Pro' | 'Parent';
-  
-  // Champs existants
   phone?: string;
   age?: number;
+  birthDate?: string;
   gender?: 'H' | 'F';
-  
-  // Nouveaux champs demandés
   address?: string;
   documents?: UserDocument[];
-  
-  // Logique Parentale
   isParent?: boolean;
   isPractitioner?: boolean;
   children?: ChildProfile[];
+}
+
+export interface MemberTitle {
+  competition: string;
+  rank: string;
+  year: number;
 }
 
 export interface Member {
   id: string;
   name: string;
   phone: string;
-  photoUrl?: string;
   category: 'Loisir' | 'Compétiteur' | 'Pro' | 'Parent';
   notes: string;
   wins: number;
   losses: number;
   draws: number;
-  titles: Title[];
+  titles: MemberTitle[];
   documentsUpToDate: boolean;
   subscriptionStatus: 'Paid' | 'Partial' | 'Unpaid';
   lastMedicalUpdate: string;
+  role?: UserRole;
 }
 
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-  author: string;
-  priority: 'High' | 'Normal';
+export interface TimerPreset {
+  name: string;
+  work: number;
+  rest: number;
 }
 
-export interface Title {
-  competition: string;
-  rank: 'Or' | 'Argent' | 'Bronze' | 'Participation';
-  year: number;
-}
+export type FightStage = 'Finale' | 'Demi-finale' | '1/4 de finale' | '1/8 de finale' | 'Eliminatoire' | 'Assaut';
 
 export interface Fight {
   id: string;
   fighterId: string;
-  fighterName: string; // Denormalized for easier display
+  fighterName: string;
   opponentName?: string;
   competitionId: string;
   fightNumber: number;
-  ring: string; // Aire/Ring/Tatami
+  ring: string;
   helmetColor: 'Rouge' | 'Bleu' | 'Inconnu';
   status: 'Pending' | 'Ongoing' | 'Finished';
   result?: 'Victoire' | 'Défaite' | 'Nul' | '';
-  isAutoImported?: boolean; // To mark fights from FFKMDA
+  stage?: FightStage;
+  isAutoImported?: boolean;
+  isLocked?: boolean;
 }
 
 export interface Competition {
@@ -88,21 +85,9 @@ export interface Competition {
   name: string;
   date: string;
   location: string;
-  ffkmdaId?: string; // ID pour l'API externe
-}
-
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  date: string;
-  type: 'Training' | 'Tournament' | 'Social';
-  description?: string;
-}
-
-export interface TimerPreset {
-  name: string;
-  work: number; // seconds
-  rest: number; // seconds
+  discipline?: string;
+  weighInDayBefore?: boolean; // Nouveau
+  ffkmdaId?: string;
 }
 
 export interface ChatMessage {
@@ -112,6 +97,44 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   isMe: boolean;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  author: string;
+  priority: 'High' | 'Normal' | 'Low';
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+}
+
+export interface Vote {
+  userId: string;
+  userName: string;
+  optionId: string;
+}
+
+export interface Poll {
+  id: string;
+  question: string;
+  options: PollOption[];
+  active: boolean;
+  createdAt: string;
+  expiresAt?: string; // Nouveau
+  votes: Vote[];
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  type: 'Training' | 'Tournament' | 'Social';
+  description: string;
 }
 
 export enum AppRoute {
