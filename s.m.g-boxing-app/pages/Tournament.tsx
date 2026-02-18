@@ -3,11 +3,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { INITIAL_MEMBERS, INITIAL_COMPETITIONS } from '../constants';
 import { Fight, User, Competition, FightStage, CalendarEvent, Announcement } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-// Added Lock and Unlock icons to fix the reference error on line 397
 import { 
   Plus, Trash2, Hash, MapPin, Shield, AlertTriangle, 
   CheckCircle2, XCircle, Trophy, Zap, Award, Calendar as CalIcon, Scale,
-  Lock, Unlock
+  Lock, Unlock, Users, CheckSquare, Square
 } from 'lucide-react';
 
 // Fonction utilitaire pour envoyer une notification système
@@ -44,16 +43,21 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const [newCompLocation, setNewCompLocation] = useState('');
   const [weighInDayBefore, setWeighInDayBefore] = useState(false);
 
+  // Gestion Pesée (Simulation locale temporaire)
+  const [weighInStatus, setWeighInStatus] = useState<Record<string, boolean>>({});
+
   const AREAS = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
 
   useEffect(() => {
     const storedUsers = localStorage.getItem('smg_users');
     const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
     const mappedInitial = INITIAL_MEMBERS.map(m => ({ id: m.id, name: m.name, category: m.category, role: 'Member' } as User));
-    const allComps = [...mappedInitial, ...localUsers].filter((u, index, self) => 
+    
+    // Tous les membres éligibles (Compétiteur ou Pro)
+    const allEligible = [...mappedInitial, ...localUsers].filter((u, index, self) => 
       index === self.findIndex((t) => t.id === u.id) && (u.category === 'Compétiteur' || u.category === 'Pro')
     );
-    setCompetitors(allComps);
+    setCompetitors(allEligible);
 
     const storedFights = localStorage.getItem('smg_fights');
     if (storedFights) setFights(JSON.parse(storedFights));
@@ -72,6 +76,29 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
     return [...competitions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [competitions]);
 
+  const currentCompetition = competitions.find(c => c.id === selectedCompId);
+
+  // Fonction pour gérer l'inscription d'un membre à la compétition sélectionnée
+  const toggleRegistration = (userId: string) => {
+    if (!currentCompetition) return;
+
+    const currentParticipants = currentCompetition.participants || [];
+    let newParticipants;
+
+    if (currentParticipants.includes(userId)) {
+      newParticipants = currentParticipants.filter(id => id !== userId);
+    } else {
+      newParticipants = [...currentParticipants, userId];
+    }
+
+    const updatedComps = competitions.map(c => 
+      c.id === selectedCompId ? { ...c, participants: newParticipants } : c
+    );
+    
+    setCompetitions(updatedComps);
+    localStorage.setItem('smg_competitions', JSON.stringify(updatedComps));
+  };
+
   const handleAddCompetition = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompName || !newCompDate) return;
@@ -82,7 +109,8 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
       discipline: newCompDiscipline,
       date: newCompDate,
       location: newCompLocation || 'Non précisé',
-      weighInDayBefore: weighInDayBefore
+      weighInDayBefore: weighInDayBefore,
+      participants: []
     };
 
     const updatedComps = [...competitions, newComp];
@@ -133,7 +161,6 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
     };
     localStorage.setItem('smg_announcements', JSON.stringify([...currentAnns, newAnn]));
 
-    // NOTIFICATION PUSH
     sendPushNotification("Nouvelle Compétition !", `${newCompName} - ${newCompDiscipline} le ${new Date(newCompDate).toLocaleDateString()}`);
 
     setNewCompName('');
@@ -365,80 +392,141 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
       {/* CONTENU : GESTION */}
       {activeTab === 'GESTION' && isStaff && (
         <div className="space-y-8 animate-fade-in">
-          {competitors.map(competitor => {
-            const compFights = fights.filter(f => f.competitionId === selectedCompId && f.fighterId === competitor.id);
-            return (
-              <div key={competitor.id} className="space-y-4">
-                <div className="flex justify-between items-end border-b border-slate-800 pb-2 px-1">
-                   <div className="flex flex-col">
-                      <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Fighter Profile</span>
-                      <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">{competitor.name}</h3>
+          
+          {/* SECTION 1 : GESTION DES INSCRIPTIONS */}
+          <FuturisticCard title="INSCRIPTIONS / PESÉE" borderColor="cyan">
+             <div className="space-y-4">
+                <div className="bg-slate-950 rounded-xl p-3 border border-slate-800">
+                   <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3 flex items-center">
+                     <Users size={12} className="mr-2" /> Sélectionner les participants
+                   </h4>
+                   <div className="max-h-40 overflow-y-auto space-y-1 pr-2">
+                      {competitors.map(u => {
+                         const isRegistered = currentCompetition?.participants?.includes(u.id);
+                         return (
+                           <button 
+                             key={u.id}
+                             onClick={() => toggleRegistration(u.id)}
+                             className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isRegistered ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500 hover:bg-slate-800'}`}
+                           >
+                              <span>{u.name}</span>
+                              {isRegistered ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
+                           </button>
+                         );
+                      })}
                    </div>
-                   <button onClick={() => addFightForCompetitor(competitor)} className="bg-cyan-600 text-white p-2 rounded-xl shadow-lg active:scale-90">
-                     <Plus size={20} />
-                   </button>
                 </div>
-                <div className="grid gap-3">
-                  {compFights.sort((a,b) => a.fightNumber - b.fightNumber).map((fight) => {
-                    const stage = getAutoStage(competitor.id, fight.id);
-                    return (
-                      <FuturisticCard key={fight.id} borderColor={fight.isLocked ? 'slate' : 'cyan'} className={`${fight.status === 'Finished' ? 'opacity-40 grayscale' : ''}`}>
-                         <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center space-x-2">
-                               <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
-                                  <Hash size={12} className="text-rose-500 mr-1"/>
-                                  <span className="text-[11px] font-black text-white">{fight.fightNumber || '??'}</span>
+
+                {/* Résumé des inscrits et Pesée */}
+                {currentCompetition?.participants && currentCompetition.participants.length > 0 && (
+                   <div className="space-y-2">
+                      <div className="flex justify-between items-end border-b border-slate-800 pb-1">
+                         <span className="text-[10px] text-slate-400 font-mono uppercase">Inscrits ({currentCompetition.participants.length})</span>
+                         <span className="text-[10px] text-slate-600 italic">Cocher si pesée OK</span>
+                      </div>
+                      {competitors
+                        .filter(u => currentCompetition.participants?.includes(u.id))
+                        .map(u => (
+                          <div key={u.id} className="flex justify-between items-center bg-slate-900/50 px-3 py-2 rounded-lg">
+                             <span className="text-xs font-bold text-slate-200">{u.name}</span>
+                             <button 
+                               onClick={() => setWeighInStatus(prev => ({...prev, [u.id]: !prev[u.id]}))}
+                               className={`flex items-center space-x-2 px-2 py-1 rounded text-[9px] font-black uppercase transition-colors ${weighInStatus[u.id] ? 'bg-green-500/20 text-green-500 border border-green-500/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}
+                             >
+                                <Scale size={12} />
+                                <span>{weighInStatus[u.id] ? 'OK' : 'Attente'}</span>
+                             </button>
+                          </div>
+                      ))}
+                   </div>
+                )}
+             </div>
+          </FuturisticCard>
+
+          {/* SECTION 2 : GESTION DES COMBATS (Uniquement pour les inscrits) */}
+          <div className="space-y-4">
+             <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest px-1">Fiches Combats (Inscrits)</h3>
+             {competitors
+                .filter(u => currentCompetition?.participants?.includes(u.id))
+                .map(competitor => {
+                  const compFights = fights.filter(f => f.competitionId === selectedCompId && f.fighterId === competitor.id);
+                  return (
+                    <div key={competitor.id} className="space-y-4">
+                      <div className="flex justify-between items-end border-b border-slate-800 pb-2 px-1">
+                         <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">{competitor.name}</h3>
+                         <button onClick={() => addFightForCompetitor(competitor)} className="bg-cyan-600 text-white p-2 rounded-xl shadow-lg active:scale-90">
+                           <Plus size={20} />
+                         </button>
+                      </div>
+                      <div className="grid gap-3">
+                        {compFights.sort((a,b) => a.fightNumber - b.fightNumber).map((fight) => {
+                          const stage = getAutoStage(competitor.id, fight.id);
+                          return (
+                            <FuturisticCard key={fight.id} borderColor={fight.isLocked ? 'slate' : 'cyan'} className={`${fight.status === 'Finished' ? 'opacity-40 grayscale' : ''}`}>
+                               <div className="flex justify-between items-start mb-3">
+                                  <div className="flex items-center space-x-2">
+                                     <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
+                                        <Hash size={12} className="text-rose-500 mr-1"/>
+                                        <span className="text-[11px] font-black text-white">{fight.fightNumber || '??'}</span>
+                                     </div>
+                                     <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
+                                        <MapPin size={12} className="text-cyan-400 mr-1"/>
+                                        <span className="text-[11px] font-black text-white">AIRE {fight.ring}</span>
+                                     </div>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                     <button onClick={() => toggleLock(fight.id)} className={`p-1.5 rounded ${fight.isLocked ? 'text-green-500' : 'text-slate-600'}`}>
+                                       {fight.isLocked ? <Lock size={16}/> : <Unlock size={16}/>}
+                                     </button>
+                                     {!fight.isLocked && <button onClick={() => setFights(prev => prev.filter(f => f.id !== fight.id))} className="p-1.5 text-rose-500"><Trash2 size={16}/></button>}
+                                  </div>
                                </div>
-                               <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 flex items-center">
-                                  <MapPin size={12} className="text-cyan-400 mr-1"/>
-                                  <span className="text-[11px] font-black text-white">AIRE {fight.ring}</span>
+                               <div className="flex justify-between items-center">
+                                  <div className="flex flex-col">
+                                     <span className={`text-xl font-black italic tracking-tighter leading-none mb-1 ${fight.helmetColor === 'Rouge' ? 'text-rose-500' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-100'}`}>
+                                       {fight.fighterName}
+                                     </span>
+                                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stage}</span>
+                                  </div>
+                                  {fight.status !== 'Finished' && !fight.isLocked ? (
+                                    <div className="flex flex-col items-end gap-2">
+                                       <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                                         <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Rouge')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Rouge' ? 'bg-rose-600 text-white' : 'text-slate-600'}`}>R</button>
+                                         <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Bleu')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white' : 'text-slate-600'}`}>B</button>
+                                       </div>
+                                       <div className="flex gap-1">
+                                          <input type="number" step="1" min="1" placeholder="#" value={fight.fightNumber} onChange={e => handleUpdateFight(fight.id, 'fightNumber', e.target.value)} className="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold"/>
+                                          <select value={fight.ring} onChange={e => handleUpdateFight(fight.id, 'ring', e.target.value)} className="w-16 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold outline-none">
+                                             {AREAS.map(num => <option key={num} value={num}>A.{num}</option>)}
+                                          </select>
+                                       </div>
+                                    </div>
+                                  ) : fight.status !== 'Finished' ? (
+                                     <div className="flex gap-2">
+                                        <button onClick={() => setFightResult(fight.id, 'Victoire')} className="bg-green-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><CheckCircle2 size={18}/></button>
+                                        <button onClick={() => setFightResult(fight.id, 'Défaite')} className="bg-rose-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><XCircle size={18}/></button>
+                                     </div>
+                                  ) : (
+                                     <div className={`px-3 py-1 rounded-lg font-black text-[10px] italic shadow-lg ${fight.result === 'Victoire' ? 'bg-green-600 text-white' : 'bg-rose-600 text-white'}`}>
+                                       {fight.result?.toUpperCase()}
+                                     </div>
+                                  )}
                                </div>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                               <button onClick={() => toggleLock(fight.id)} className={`p-1.5 rounded ${fight.isLocked ? 'text-green-500' : 'text-slate-600'}`}>
-                                 {fight.isLocked ? <Lock size={16}/> : <Unlock size={16}/>}
-                               </button>
-                               {!fight.isLocked && <button onClick={() => setFights(prev => prev.filter(f => f.id !== fight.id))} className="p-1.5 text-rose-500"><Trash2 size={16}/></button>}
-                            </div>
-                         </div>
-                         <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                               <span className={`text-xl font-black italic tracking-tighter leading-none mb-1 ${fight.helmetColor === 'Rouge' ? 'text-rose-500' : fight.helmetColor === 'Bleu' ? 'text-cyan-400' : 'text-slate-100'}`}>
-                                 {fight.fighterName}
-                               </span>
-                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{stage}</span>
-                            </div>
-                            {fight.status !== 'Finished' && !fight.isLocked ? (
-                              <div className="flex flex-col items-end gap-2">
-                                 <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                                   <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Rouge')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Rouge' ? 'bg-rose-600 text-white' : 'text-slate-600'}`}>R</button>
-                                   <button onClick={() => handleUpdateFight(fight.id, 'helmetColor', 'Bleu')} className={`px-2 py-1 rounded text-[9px] font-black ${fight.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white' : 'text-slate-600'}`}>B</button>
-                                 </div>
-                                 <div className="flex gap-1">
-                                    <input type="number" step="1" min="1" placeholder="#" value={fight.fightNumber} onChange={e => handleUpdateFight(fight.id, 'fightNumber', e.target.value)} className="w-12 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold"/>
-                                    <select value={fight.ring} onChange={e => handleUpdateFight(fight.id, 'ring', e.target.value)} className="w-16 bg-slate-950 border border-slate-700 rounded p-1 text-[10px] text-white text-center font-bold outline-none">
-                                       {AREAS.map(num => <option key={num} value={num}>A.{num}</option>)}
-                                    </select>
-                                 </div>
-                              </div>
-                            ) : fight.status !== 'Finished' ? (
-                               <div className="flex gap-2">
-                                  <button onClick={() => setFightResult(fight.id, 'Victoire')} className="bg-green-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><CheckCircle2 size={18}/></button>
-                                  <button onClick={() => setFightResult(fight.id, 'Défaite')} className="bg-rose-600 text-white p-2 rounded-xl shadow-lg active:scale-90"><XCircle size={18}/></button>
-                               </div>
-                            ) : (
-                               <div className={`px-3 py-1 rounded-lg font-black text-[10px] italic shadow-lg ${fight.result === 'Victoire' ? 'bg-green-600 text-white' : 'bg-rose-600 text-white'}`}>
-                                 {fight.result?.toUpperCase()}
-                               </div>
-                            )}
-                         </div>
-                      </FuturisticCard>
-                    );
-                  })}
+                            </FuturisticCard>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+             })}
+             {(!currentCompetition?.participants || currentCompetition.participants.length === 0) && (
+                <div className="text-center py-10 opacity-50">
+                   <Users size={48} className="mx-auto mb-2 text-slate-600" />
+                   <p className="text-xs text-slate-500 font-bold">Aucun inscrit pour le moment.</p>
+                   <p className="text-[10px] text-slate-600">Utilisez la section "Inscriptions" ci-dessus.</p>
                 </div>
-              </div>
-            );
-          })}
+             )}
+          </div>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Announcement, Poll, PollOption } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Shield, Megaphone, Users, Trash2, CheckSquare, Plus, Activity, Calendar } from 'lucide-react';
+import { Shield, Megaphone, Users, Trash2, CheckSquare, Plus, Activity, Calendar, UserCog, Smartphone } from 'lucide-react';
 
 // Fonction utilitaire pour envoyer une notification système
 const sendPushNotification = (title: string, body: string) => {
@@ -44,6 +44,25 @@ const Admin: React.FC<AdminProps> = ({ currentUser, announcements, onAddAnnounce
     const storedPolls = localStorage.getItem('smg_polls');
     if (storedPolls) setPolls(JSON.parse(storedPolls));
   }, []);
+
+  // --- GESTION UTILISATEURS ---
+  const updateUser = (userId: string, changes: Partial<User>) => {
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, ...changes } : u);
+    setUsers(updatedUsers);
+    localStorage.setItem('smg_users', JSON.stringify(updatedUsers));
+  };
+
+  const deleteUser = (userId: string) => {
+    if (userId === currentUser.id) {
+        alert("Action impossible sur votre propre compte.");
+        return;
+    }
+    if (confirm('Voulez-vous vraiment supprimer cet utilisateur ? Cette action est irréversible.')) {
+      const updatedUsers = users.filter(u => u.id !== userId);
+      setUsers(updatedUsers);
+      localStorage.setItem('smg_users', JSON.stringify(updatedUsers));
+    }
+  };
 
   const handlePostAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,15 +277,70 @@ const Admin: React.FC<AdminProps> = ({ currentUser, announcements, onAddAnnounce
 
       {/* USERS */}
       {activeTab === 'USERS' && (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-fade-in">
+           {users.length === 0 && <p className="text-center text-slate-500 text-xs italic py-10">Aucun membre inscrit dans la base locale.</p>}
+           
            {users.map(user => (
-             <FuturisticCard key={user.id} className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                   <div>
-                     <div className="font-bold text-white text-sm uppercase italic">{user.name}</div>
-                     <div className="text-[10px] text-slate-600 font-mono tracking-tighter">{user.email}</div>
+             <FuturisticCard key={user.id} borderColor={user.role === 'Admin' ? 'rose' : user.role === 'Coach' ? 'cyan' : 'slate'}>
+                <div className="flex flex-col gap-3">
+                   {/* Header User */}
+                   <div className="flex justify-between items-start">
+                      <div className="flex items-center space-x-3">
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                            user.role === 'Admin' ? 'bg-rose-500/20 text-rose-500' : 
+                            user.role === 'Coach' ? 'bg-cyan-500/20 text-cyan-500' :
+                            'bg-slate-800 text-slate-400'
+                         }`}>
+                            {user.name.charAt(0)}
+                         </div>
+                         <div>
+                            <div className="font-bold text-white text-sm uppercase italic">{user.name}</div>
+                            <div className="text-[10px] text-slate-500 font-mono tracking-tighter">{user.email}</div>
+                         </div>
+                      </div>
+                      <button 
+                        onClick={() => deleteUser(user.id)}
+                        className="text-slate-600 hover:text-rose-500 transition-colors p-1"
+                        title="Supprimer définitivement"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                    </div>
-                   <div className={`px-2 py-0.5 rounded text-[8px] border font-black uppercase ${user.role === 'Admin' ? 'border-rose-500 text-rose-500' : user.role === 'Coach' ? 'border-cyan-500 text-cyan-500' : 'border-slate-500 text-slate-500'}`}>{user.role}</div>
+
+                   {/* Controls */}
+                   <div className="grid grid-cols-2 gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+                      <div>
+                         <label className="text-[9px] text-slate-500 font-black uppercase mb-1 block flex items-center"><UserCog size={10} className="mr-1"/> Rôle</label>
+                         <select 
+                            value={user.role} 
+                            onChange={(e) => updateUser(user.id, { role: e.target.value as any })}
+                            className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white outline-none focus:border-cyan-500"
+                         >
+                            <option value="Member">Membre</option>
+                            <option value="Coach">Coach</option>
+                            <option value="Admin">Admin</option>
+                         </select>
+                      </div>
+                      <div>
+                         <label className="text-[9px] text-slate-500 font-black uppercase mb-1 block">Catégorie</label>
+                         <select 
+                            value={user.category} 
+                            onChange={(e) => updateUser(user.id, { category: e.target.value as any })}
+                            className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white outline-none focus:border-cyan-500"
+                         >
+                            <option value="Loisir">Loisir</option>
+                            <option value="Compétiteur">Compétiteur</option>
+                            <option value="Pro">Pro</option>
+                            <option value="Parent">Parent</option>
+                         </select>
+                      </div>
+                   </div>
+                   
+                   {/* Info sup */}
+                   <div className="flex justify-between items-center px-1">
+                      <span className="text-[9px] text-slate-600 font-mono uppercase">ID: {user.id.slice(-6)}</span>
+                      <span className="text-[9px] text-slate-500 font-mono flex items-center"><Smartphone size={10} className="mr-1"/> {user.phone || 'Non renseigné'}</span>
+                   </div>
                 </div>
              </FuturisticCard>
            ))}

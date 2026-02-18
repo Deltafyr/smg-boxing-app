@@ -86,7 +86,8 @@ export interface Competition {
   date: string;
   location: string;
   discipline?: string;
-  weighInDayBefore?: boolean; // Nouveau
+  weighInDayBefore?: boolean;
+  participants?: string[]; // Liste des IDs des membres inscrits
   ffkmdaId?: string;
 }
 
@@ -125,7 +126,7 @@ export interface Poll {
   options: PollOption[];
   active: boolean;
   createdAt: string;
-  expiresAt?: string; // Nouveau
+  expiresAt?: string;
   votes: Vote[];
 }
 
