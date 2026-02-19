@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { 
   getAuth, onAuthStateChanged, signInAnonymously, signOut 
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, onSnapshot, 
-  addDoc, serverTimestamp, getDocs, updateDoc, deleteDoc
+  addDoc, serverTimestamp, query, getDocs, deleteDoc, updateDoc
 } from 'firebase/firestore';
 import { 
   Shield, Skull, MessageSquare, Users, Send, Trophy, 
@@ -15,7 +15,7 @@ import {
   User as UserIcon, Play, Pause, Zap, Activity, AlertTriangle,
   LogIn, UserPlus, Fingerprint, ChevronRight, Sword, Medal,
   Calendar, Info, Target, DownloadCloud, ClipboardCheck,
-  FileBadge, Box, X, Save, Edit3
+  FileBadge, Box, X, Save
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ARMAND (VERSION STABLE) ---
@@ -29,13 +29,12 @@ const firebaseConfig = {
   measurementId: "G-Y4W98BNTHN"
 };
 
-// Initialisation sécurisée
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'smg-boxing-club';
 
-// URL de ton Google Apps Script (Proxy FFKMDA V81)
+// URL de ton Google Apps Script (Proxy FFKMDA)
 const SHOGUN_API_URL = "https://script.google.com/macros/s/AKfycbz.../exec";
 
 // --- UTILS : LOGIQUE FFKMDA & AGES ---
@@ -116,14 +115,13 @@ const App = () => {
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Initialisation Authentification résiliente
+  // 1. Authentification (Strict Armand Logic)
   useEffect(() => {
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);
-      } catch (e: any) { 
-        console.error("Firebase Auth Fail:", e.message); 
-        // On ne bloque plus le chargement ici, on affichera l'erreur si besoin au clic
+      } catch (e) {
+        console.error("Auth init error:", e);
       }
     };
     initAuth();
@@ -151,8 +149,13 @@ const App = () => {
       }
       setLoading(false);
     }, (err) => {
-      console.error("Firestore error:", err);
+      console.error("Sync Error:", err);
       setLoading(false);
+    });
+
+    const unsubChat = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), (s) => {
+      const msgs = s.docs.map(d => ({id: d.id, ...d.data()}));
+      setMessages(msgs.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0)));
     });
 
     const unsubMembers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (s) => {
@@ -163,20 +166,10 @@ const App = () => {
       setFights(s.docs.map(d => ({id: d.id, ...d.data()})));
     });
 
-    const unsubChat = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), (s) => {
-      const msgs = s.docs.map(d => ({id: d.id, ...d.data()}));
-      setMessages(msgs.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0)));
-    });
-
-    return () => { 
-      unsubProfile(); 
-      unsubMembers();
-      unsubFights();
-      unsubChat();
-    };
+    return () => { unsubProfile(); unsubChat(); unsubMembers(); unsubFights(); };
   }, [user]);
 
-  // 3. Moteur Chrono
+  // 3. Moteur Timer
   useEffect(() => {
     let interval: any = null;
     if (isActive && seconds > 0) {
@@ -184,7 +177,7 @@ const App = () => {
     } else if (isActive && seconds === 0) {
       if (!isResting) {
         setIsResting(true);
-        setSeconds(60); 
+        setSeconds(60);
       } else {
         setIsResting(false);
         setSeconds(180);
@@ -194,29 +187,22 @@ const App = () => {
     return () => clearInterval(interval);
   }, [isActive, seconds, isResting]);
 
-  useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
+  useEffect(() => { 
+    if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [messages, view]);
 
   // --- ACTIONS ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!user) {
+      setError("Système non initialisé. Patiente un instant.");
+      return;
+    }
     if (isSubmitting) return;
+
     setIsSubmitting(true);
     setError(null);
-
-    // Tentative de reconnexion forcée si l'utilisateur est null (résolution "Système non prêt")
-    let currentUser = user;
-    if (!currentUser) {
-      try {
-        const cred = await signInAnonymously(auth);
-        currentUser = cred.user;
-        setUser(currentUser);
-      } catch (err: any) {
-        setError("Liaison Firebase impossible. Vérifie ta connexion.");
-        setIsSubmitting(false);
-        return;
-      }
-    }
 
     const f = new FormData(e.currentTarget);
     const fn = f.get('fn')?.toString().trim();
@@ -225,27 +211,38 @@ const App = () => {
 
     try {
       if (authMode === 'login') {
-        const existing = members.find(m => m.firstName?.toLowerCase() === fn?.toLowerCase() && m.phone === ph);
-        if (existing && currentUser) {
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', currentUser.uid), {
-            ...existing,
-            lastLogin: serverTimestamp()
+        const q = collection(db, 'artifacts', appId, 'public', 'data', 'members');
+        const snap = await getDocs(q);
+        const existing = snap.docs.find(d => 
+          d.data().firstName?.toLowerCase() === fn?.toLowerCase() && 
+          d.data().phone === ph
+        );
+
+        if (existing) {
+          const data = existing.data();
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), {
+            ...data,
+            lastSeen: serverTimestamp()
           });
+          if (existing.id !== user.uid) {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', existing.id));
+          }
         } else {
-          setError("Boxeur introuvable. Vérifie ton prénom et n° de téléphone.");
+          setError("Profil introuvable. Vérifie tes informations ou inscris-toi.");
           setIsSubmitting(false);
         }
       } else {
-        if (!currentUser) throw new Error("Erreur système.");
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', currentUser.uid), {
-          firstName: fn, lastName: ln, phone: ph, 
+        if (!ln) { setError("Le nom de famille est requis."); setIsSubmitting(false); return; }
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), {
+          firstName: fn, lastName: ln, phone: ph, role: 'member', category: 'Compétiteur',
           birthDate: new Date(f.get('bd')?.toString() || ""),
-          role: 'member', category: 'Elite', isMedicalOk: false, joinedAt: serverTimestamp(),
+          joinedAt: serverTimestamp(), isMedicalOk: false,
           authorizations: { imageRights: true, transportParental: true, emergencySurgery: true }
         });
       }
     } catch (err: any) {
-      setError("Erreur : " + err.message);
+      console.error("Auth Error:", err);
+      setError("Erreur réseau Cloud. Vérifie ta connexion.");
       setIsSubmitting(false);
     }
   };
@@ -255,9 +252,11 @@ const App = () => {
     if (!inputText.trim() || !user) return;
     const text = inputText;
     setInputText('');
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-      text, uid: user.uid, sender: profile?.firstName || 'Elite', timestamp: Date.now()
-    });
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+        text, uid: user.uid, sender: profile?.firstName || 'Boxeur', timestamp: Date.now()
+      });
+    } catch (e) { setInputText(text); }
   };
 
   const formatTime = (t: number) => {
@@ -269,18 +268,17 @@ const App = () => {
   // --- RENDU ---
 
   if (loading) return (
-    <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono p-10">
-      <Skull size={64} className="text-cyan-500 animate-pulse mb-6 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
-      <h1 className="text-white font-black text-xl tracking-[0.5em] uppercase text-center leading-relaxed font-black">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase">Kernel_v35_Stable</p>
+    <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono">
+      <Skull size={64} className="text-cyan-500 animate-pulse mb-4 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
+      <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
+      <p className="text-cyan-800 text-[10px] mt-2 animate-bounce uppercase tracking-[0.3em]">Kernel_v36_Stable</p>
     </div>
   );
 
   const renderAuth = () => (
     <div className="p-8 space-y-8 animate-in fade-in pb-32 h-screen overflow-y-auto custom-scrollbar">
       <div className="flex flex-col items-center mt-12">
-        <div className="p-6 bg-cyan-500/10 rounded-[3rem] border border-cyan-500/20 mb-6 shadow-2xl relative group">
-          <div className="absolute inset-0 bg-cyan-500/5 blur-2xl rounded-full group-hover:bg-cyan-500/10 transition-all"></div>
+        <div className="p-6 bg-cyan-500/10 rounded-[3rem] border border-cyan-500/20 mb-6 shadow-2xl relative">
           <Fingerprint size={56} className="text-cyan-500 relative z-10" />
         </div>
         <h1 className="text-4xl font-black italic text-white uppercase leading-none text-center tracking-tighter">
@@ -290,7 +288,7 @@ const App = () => {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/40 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake">
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake">
           <AlertTriangle size={18} className="shrink-0" /> {error}
         </div>
       )}
@@ -316,17 +314,19 @@ const App = () => {
           className={`w-full p-5 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-6 ${isSubmitting ? 'bg-slate-800 opacity-50' : 'bg-cyan-600 shadow-cyan-900/40'}`}
         >
           {isSubmitting ? <Activity className="animate-spin" size={20} /> : (authMode === 'login' ? <LogIn size={20}/> : <UserPlus size={20}/>)}
-          {isSubmitting ? 'SYNC_CORE...' : (authMode === 'login' ? 'Entrer dans l\'arène' : 'Initialiser Profil')}
+          {isSubmitting ? 'TRAITEMENT...' : (authMode === 'login' ? 'Entrer dans l\'arène' : 'Initialiser Profil')}
         </button>
       </form>
 
-      <button 
-        type="button"
-        onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} 
-        className="w-full text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors py-2"
-      >
-        {authMode === 'login' ? "Nouveau membre ? S'inscrire" : "Déjà membre ? Se connecter"}
-      </button>
+      <div className="text-center pt-4">
+        <button 
+          onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} 
+          className="text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors flex items-center justify-center gap-2 mx-auto"
+        >
+          {authMode === 'login' ? "Nouveau membre ? S'inscrire" : "Déjà membre ? Se connecter"}
+          <ChevronRight size={12} />
+        </button>
+      </div>
     </div>
   );
 
@@ -335,7 +335,7 @@ const App = () => {
       <header className="flex justify-between items-start py-8 relative">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
         <div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">SMG <span className="text-cyan-500">Boxe</span></h1>
+          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none tracking-tighter">SMG <span className="text-cyan-500">Boxe</span></h1>
           <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 tracking-widest font-bold">Coach {profile?.firstName} • BMF2 Master</p>
         </div>
         <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
@@ -354,7 +354,7 @@ const App = () => {
         </FuturisticCard>
         <FuturisticCard borderColor="gold" onClick={() => setView('tournament')} className="flex flex-col items-center gap-4 py-8 col-span-2 group active:scale-95 transition-all">
           <Trophy size={32} className="text-yellow-500" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Compétitions & FFKMDA</span>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">Arène Elite & FFKMDA</span>
         </FuturisticCard>
       </div>
 
@@ -431,7 +431,7 @@ const App = () => {
                 <div className="p-6 space-y-6 animate-in slide-in-from-right-4 pb-32">
                   <div className="flex items-center justify-between">
                     <button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-yellow-500"><ArrowLeft size={18}/></button>
-                    <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none">Arene <span className="text-yellow-500">Elite</span></h2>
+                    <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none tracking-tighter">Arene <span className="text-yellow-500">Elite</span></h2>
                     <button onClick={() => { setIsSubmitting(true); setTimeout(() => setIsSubmitting(false), 2000); }} disabled={isSubmitting} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-cyan-500 active:scale-90 transition-all">
                       <DownloadCloud size={18} className={isSubmitting ? 'animate-bounce' : ''} />
                     </button>
@@ -451,7 +451,7 @@ const App = () => {
                          <div className={`text-[10px] font-black uppercase ${f.resultat === 'Victoire' ? 'text-green-500' : 'text-slate-600'}`}>{f.resultat || "Attente"}</div>
                       </FuturisticCard>
                     ))}
-                    {fights.length === 0 && <p className="text-center py-20 text-slate-700 italic uppercase text-[10px] font-black tracking-widest">Aucun combat au planning</p>}
+                    {fights.length === 0 && <p className="text-center py-20 text-slate-700 italic uppercase text-[10px] font-black tracking-widest tracking-widest">Aucun combat au planning</p>}
                   </div>
                 </div>
               )}
@@ -460,7 +460,7 @@ const App = () => {
                 <div className="p-6 space-y-6 animate-in slide-in-from-right-4 pb-32 h-full">
                    <div className="flex items-center gap-3">
                       <button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-cyan-500 shadow-lg"><ArrowLeft size={18}/></button>
-                      <h2 className="text-2xl font-black text-white italic uppercase leading-none">Roster <span className="text-cyan-500">SMG</span></h2>
+                      <h2 className="text-2xl font-black text-white italic uppercase leading-none tracking-tighter">Roster <span className="text-cyan-500">SMG</span></h2>
                    </div>
                    <div className="space-y-3 overflow-y-auto pr-1">
                       {members.map(m => {
@@ -490,6 +490,35 @@ const App = () => {
             </div>
           )}
         </main>
+
+        {/* MODAL EDITION MANUELLE SHOGUN */}
+        <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Forcer Détails Shogun">
+           <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Aire</label>
+                    <input defaultValue={selectedFight?.aire} id="m_aire" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500" />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Combat N°</label>
+                    <input defaultValue={selectedFight?.numCombat} id="m_num" className="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500" />
+                 </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  const updates = {
+                    aire: (document.getElementById('m_aire') as HTMLInputElement).value,
+                    numCombat: (document.getElementById('m_num') as HTMLInputElement).value
+                  };
+                  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), updates);
+                  setSelectedFight(null);
+                }}
+                className="w-full p-5 bg-yellow-600 rounded-2xl font-black uppercase text-white shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+              >
+                <Save size={20}/> Sauvegarder Shogun
+              </button>
+           </div>
+        </Modal>
 
         {profile && view !== 'chat' && (
           <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center z-50 px-6">
