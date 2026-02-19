@@ -6,14 +6,14 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, onSnapshot, 
-  addDoc, serverTimestamp, query, where, getDocs, updateDoc, deleteDoc
+  addDoc, serverTimestamp, query, getDocs, deleteDoc
 } from 'firebase/firestore';
 import { 
   Shield, Skull, MessageSquare, Users, Send, Trophy, 
   Timer as TimerIcon, Home as HomeIcon, ArrowLeft, 
   RotateCcw, Megaphone, CheckCircle2, LogOut,
   User as UserIcon, Play, Pause, Zap, Activity, AlertTriangle,
-  LogIn, UserPlus, Fingerprint
+  LogIn, UserPlus, Fingerprint, ChevronRight
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ---
@@ -32,7 +32,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'smg-boxing-club';
 
-// --- COMPOSANTS UI ---
+// --- COMPOSANTS UI CYBERPUNK ---
 
 const FuturisticCard = ({ children, className = '', title, borderColor = 'slate', onClick }: any) => {
   const borderColors: any = {
@@ -76,19 +76,27 @@ const App = () => {
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Initialisation Auth
+  // 1. Initialisation Auth (Rule 3)
   useEffect(() => {
     const init = async () => {
-      try { await signInAnonymously(auth); } catch (e) { console.error(e); }
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.error("Auth init error:", e);
+      }
     };
     init();
-    return onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (!u) { setLoading(false); setProfile(null); }
+      if (!u) {
+        setLoading(false);
+        setProfile(null);
+      }
     });
+    return () => unsubscribe();
   }, []);
 
-  // 2. Synchronisation Cloud
+  // 2. Synchronisation Cloud (Rule 1 & 2)
   useEffect(() => {
     if (!user) return;
     const path = ['artifacts', appId, 'public', 'data'];
@@ -101,6 +109,9 @@ const App = () => {
       } else {
         setProfile(null);
       }
+      setLoading(false);
+    }, (err) => {
+      console.error("Sync Error:", err);
       setLoading(false);
     });
 
@@ -136,13 +147,20 @@ const App = () => {
     return () => clearInterval(interval);
   }, [isActive, seconds, isResting]);
 
-  useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
+  useEffect(() => { 
+    if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [messages, view]);
 
   // --- ACTIONS ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user || isSubmitting) return;
+    if (!user) {
+      setError("Système non initialisé. Patiente un instant.");
+      return;
+    }
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
     setError(null);
 
@@ -153,8 +171,8 @@ const App = () => {
 
     try {
       if (authMode === 'login') {
-        // Mode Connexion : Recherche par Nom + Tel
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'members'));
+        // Mode Connexion : Recherche par Prénom + Téléphone
+        const q = collection(db, 'artifacts', appId, 'public', 'data', 'members');
         const snap = await getDocs(q);
         const existing = snap.docs.find(d => 
           d.data().firstName?.toLowerCase() === fn?.toLowerCase() && 
@@ -162,30 +180,30 @@ const App = () => {
         );
 
         if (existing) {
-          // On "récupère" le compte en migrant les données vers le nouveau UID
           const data = existing.data();
+          // On lie ce profil à l'UID actuel
           await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), {
             ...data,
-            lastLogin: serverTimestamp()
+            lastSeen: serverTimestamp()
           });
-          // On peut optionnellement supprimer l'ancien doc s'il avait un UID différent
+          // Si l'ancien doc avait un UID différent, on peut le supprimer pour éviter les doublons
           if (existing.id !== user.uid) {
             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', existing.id));
           }
         } else {
-          setError("Profil introuvable. Vérifie ton prénom et téléphone.");
+          setError("Profil introuvable. Vérifie tes informations ou inscris-toi.");
           setIsSubmitting(false);
         }
       } else {
         // Mode Inscription
-        if (!ln) { setError("Le nom est requis."); setIsSubmitting(false); return; }
+        if (!ln) { setError("Le nom de famille est requis."); setIsSubmitting(false); return; }
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), {
           firstName: fn, lastName: ln, phone: ph, role: 'Member', joinedAt: serverTimestamp(), isMedicalOk: false
         });
       }
-    } catch (err) {
-      console.error(err);
-      setError("Erreur de liaison Cloud. Réessaie.");
+    } catch (err: any) {
+      console.error("Auth Error Details:", err);
+      setError("Erreur réseau Cloud. Vérifie ta connexion.");
       setIsSubmitting(false);
     }
   };
@@ -195,9 +213,13 @@ const App = () => {
     if (!inputText.trim() || !user) return;
     const text = inputText;
     setInputText('');
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-      text, uid: user.uid, sender: profile?.firstName || 'Boxeur', timestamp: Date.now()
-    });
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+        text, uid: user.uid, sender: profile?.firstName || 'Boxeur', timestamp: Date.now()
+      });
+    } catch (e) {
+      setInputText(text);
+    }
   };
 
   const formatTime = (t: number) => {
@@ -212,42 +234,53 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-4" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase">SMG Kernel</h1>
-      <p className="text-cyan-800 text-[10px] mt-2 animate-bounce">SYNC_IN_PROGRESS...</p>
+      <p className="text-cyan-800 text-[10px] mt-2 animate-bounce uppercase">Initialisation Shogun...</p>
     </div>
   );
 
   const renderAuth = () => (
     <div className="p-8 space-y-8 animate-in fade-in pb-32">
-      <div className="flex flex-col items-center mt-10">
-        <div className="p-5 bg-cyan-500/10 rounded-[2.5rem] border border-cyan-500/20 mb-6 shadow-2xl">
-          <Fingerprint size={48} className="text-cyan-500" />
+      <div className="flex flex-col items-center mt-12">
+        <div className="p-6 bg-cyan-500/10 rounded-[3rem] border border-cyan-500/20 mb-6 shadow-2xl relative">
+          <div className="absolute inset-0 bg-cyan-500/5 blur-xl rounded-full animate-pulse"></div>
+          <Fingerprint size={56} className="text-cyan-500 relative z-10" />
         </div>
         <h1 className="text-4xl font-black italic text-white uppercase leading-none text-center">
           {authMode === 'login' ? 'Connexion' : 'Inscription'}<br/>
-          <span className="text-cyan-500 text-xl font-bold not-italic tracking-widest">S.M.G BOXING</span>
+          <span className="text-cyan-500 text-xl font-bold not-italic tracking-[0.3em] uppercase">S.M.G Boxe</span>
         </h1>
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake">
-          <AlertTriangle size={16} /> {error}
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake">
+          <AlertTriangle size={18} className="shrink-0" /> {error}
         </div>
       )}
 
       <form onSubmit={handleAuth} className="space-y-4">
-        <input name="fn" placeholder="Prénom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />
-        {authMode === 'register' && <input name="ln" placeholder="Nom de famille" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />}
-        <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />
+        <div className="space-y-3">
+           <input name="fn" placeholder="Prénom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required />
+           {authMode === 'register' && <input name="ln" placeholder="Nom de famille" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required />}
+           <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required />
+        </div>
         
-        <button type="submit" disabled={isSubmitting} className="w-full p-5 bg-cyan-600 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl shadow-cyan-900/30 active:scale-95 transition-all flex items-center justify-center gap-3">
-          {isSubmitting ? <Activity className="animate-spin" size={18} /> : (authMode === 'login' ? <LogIn size={18}/> : <UserPlus size={18}/>)}
-          {isSubmitting ? 'SYCHRONISATION...' : (authMode === 'login' ? 'Accéder au Club' : 'Créer mon Profil')}
+        <button 
+          type="submit" 
+          disabled={isSubmitting} 
+          className="w-full p-5 bg-cyan-600 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl shadow-cyan-900/40 active:scale-95 transition-all flex items-center justify-center gap-3 mt-6"
+        >
+          {isSubmitting ? <Activity className="animate-spin" size={20} /> : (authMode === 'login' ? <LogIn size={20}/> : <Zap size={20}/>)}
+          {isSubmitting ? 'TRAITEMENT...' : (authMode === 'login' ? 'Accéder au Club' : 'Valider Profil')}
         </button>
       </form>
 
-      <div className="text-center">
-        <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-cyan-400 transition-colors">
-          {authMode === 'login' ? "Nouveau membre ? M'inscrire ici" : "Déjà membre ? Se connecter"}
+      <div className="text-center pt-4">
+        <button 
+          onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} 
+          className="text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors flex items-center justify-center gap-2 mx-auto"
+        >
+          {authMode === 'login' ? "Nouveau membre ? S'inscrire" : "Déjà membre ? Se connecter"}
+          <ChevronRight size={12} />
         </button>
       </div>
     </div>
@@ -259,7 +292,7 @@ const App = () => {
         <div className="absolute top-10 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
         <Skull size={80} className="text-cyan-500 mb-4 relative z-10 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]" />
         <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">S.M.G Boxing</h1>
-        <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 tracking-widest text-center">Profil : {profile?.firstName} {profile?.lastName}</p>
+        <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 tracking-widest text-center">Salut Coach {profile?.firstName}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -294,7 +327,6 @@ const App = () => {
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
       <div className="max-w-md mx-auto min-h-screen bg-slate-950 border-x border-slate-900/50 relative shadow-2xl overflow-hidden flex flex-col">
         
-        {/* Viewport Dynamic */}
         <main className="flex-1 overflow-y-auto custom-scrollbar">
           {!profile ? renderAuth() : (
             <>
@@ -365,7 +397,6 @@ const App = () => {
           )}
         </main>
         
-        {/* Navigation Tab Bar */}
         {profile && view !== 'chat' && (
           <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center z-50 px-6">
              <button onClick={() => setView('home')} className={`p-3 rounded-2xl transition-all ${view === 'home' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-600'}`}><HomeIcon size={22}/></button>
