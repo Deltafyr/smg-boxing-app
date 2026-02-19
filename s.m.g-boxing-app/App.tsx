@@ -12,7 +12,7 @@ import {
   Users, Send, Calendar, Trophy, AlertCircle, CheckCircle2,
   UserPlus, Target, Medal, Sword, Award, User as UserIcon,
   Timer as TimerIcon, Play, Pause, RotateCcw, LogOut, Home as HomeIcon,
-  Plus, Trash2, Megaphone, LayoutGrid
+  Plus, Trash2, Megaphone, ArrowLeft, LayoutGrid
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE RÉELLE (SYNC ARMAND) ---
@@ -141,8 +141,10 @@ const App = () => {
   const [profile, setProfile] = useState(null);
   const [currentRoute, setCurrentRoute] = useState(AppRoute.HOME);
   const [announcements, setAnnouncements] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const messagesEndRef = useRef(null);
 
-  // Authentification et Initialisation
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -157,12 +159,10 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  // Synchronisation des données
   useEffect(() => {
     if (!user) return;
     const path = ['artifacts', appId, 'public', 'data'];
     
-    // Listener Profil
     const unsubProfile = onSnapshot(doc(db, ...path, 'members', user.uid), (snap) => {
       if (snap.exists()) { 
         setProfile({ id: snap.id, ...snap.data() });
@@ -175,13 +175,32 @@ const App = () => {
         setLoading(false);
     });
 
-    // Listener Annonces
     const unsubAnnounce = onSnapshot(collection(db, ...path, 'announcements'), s => {
       setAnnouncements(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => b.timestamp - a.timestamp));
     });
 
-    return () => { unsubProfile(); unsubAnnounce(); };
+    const unsubChat = onSnapshot(collection(db, ...path, 'messages'), s => {
+      setMessages(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => a.timestamp - b.timestamp));
+    });
+
+    return () => { unsubProfile(); unsubAnnounce(); unsubChat(); };
   }, [user]);
+
+  useEffect(() => {
+    if (currentRoute === AppRoute.CHAT) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, currentRoute]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!inputText.trim() || !user) return;
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+      text: inputText,
+      uid: user.uid,
+      senderName: profile?.firstName || 'Anonyme',
+      timestamp: Date.now()
+    });
+    setInputText('');
+  };
 
   if (loading) return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-[100]">
@@ -189,7 +208,7 @@ const App = () => {
          <div className="absolute inset-0 bg-cyan-500 rounded-full blur-xl opacity-20 animate-ping"></div>
          <Skull size={64} className="text-cyan-500 relative z-10" />
       </div>
-      <h1 className="text-2xl font-black italic tracking-tighter text-white">S.M.G BOXING</h1>
+      <h1 className="text-2xl font-black italic tracking-tighter text-white uppercase">S.M.G BOXING</h1>
       <div className="text-cyan-600 font-mono text-[10px] tracking-[0.3em] animate-pulse mt-2 uppercase">Initialisation Shogun Core...</div>
     </div>
   );
@@ -222,15 +241,38 @@ const App = () => {
 
     switch (currentRoute) {
       case AppRoute.HOME: return <HomePage onNavigate={setCurrentRoute} announcements={announcements} profile={profile} />;
-      case AppRoute.PROFILE: return (
-        <div className="p-8 space-y-8 text-center pb-32">
-           <div className="w-24 h-24 rounded-3xl bg-cyan-600 mx-auto flex items-center justify-center text-4xl font-black text-white italic shadow-2xl">
-             {profile?.firstName?.charAt(0)}
-           </div>
-           <div><h2 className="text-2xl font-black text-white uppercase italic">{profile?.firstName} {profile?.lastName}</h2><p className="text-cyan-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">{profile?.role}</p></div>
-           <button onClick={() => auth.signOut()} className="w-full p-4 bg-rose-950/20 border border-rose-900/30 rounded-2xl text-rose-500 font-black uppercase text-[10px]">Déconnexion</button>
+      
+      case AppRoute.CHAT: return (
+        <div className="flex flex-col h-screen pb-32 bg-slate-950 relative">
+          <div className="px-4 py-3 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between sticky top-0 z-20">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center"><Users className="text-white" size={20} /></div>
+              <div><h2 className="font-bold text-white text-sm">Club Général</h2><span className="text-[9px] text-cyan-400 font-mono">En ligne</span></div>
+            </div>
+          </div>
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
+            {messages.map((msg) => {
+              const isMe = msg.uid === user.uid;
+              return (
+                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    {!isMe && <span className="text-[10px] text-slate-500 mb-1 ml-2">{msg.senderName}</span>}
+                    <div className={`px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}`}>{msg.text}</div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="p-4 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800 sticky bottom-16 z-20">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-700 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"/>
+              <button type="submit" className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center text-white"><Send size={18} /></button>
+            </form>
+          </div>
         </div>
       );
+
       case AppRoute.TIMER: return (
         <div className="p-6 space-y-8 animate-in slide-in-from-bottom-4 pb-32">
            <button onClick={() => setCurrentRoute(AppRoute.HOME)} className="flex items-center gap-2 text-cyan-500 text-[10px] font-bold uppercase"><ArrowLeft size={14}/> Retour</button>
@@ -243,6 +285,22 @@ const App = () => {
               <button className="flex-1 bg-white text-black p-5 rounded-2xl font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">Start</button>
               <button className="p-5 border border-slate-800 rounded-2xl text-slate-400"><RotateCcw/></button>
            </div>
+        </div>
+      );
+
+      case AppRoute.PROFILE: return (
+        <div className="p-8 space-y-8 text-center pb-32">
+           <div className="w-24 h-24 rounded-3xl bg-cyan-600 mx-auto flex items-center justify-center text-4xl font-black text-white italic shadow-2xl">
+             {profile?.firstName?.charAt(0)}
+           </div>
+           <div><h2 className="text-2xl font-black text-white uppercase italic">{profile?.firstName} {profile?.lastName}</h2><p className="text-cyan-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">{profile?.role}</p></div>
+           <div className="text-left space-y-4">
+              <FuturisticCard title="COFFRE FORT" borderColor="slate">
+                 <p className="text-xs text-slate-400 font-mono">ID: {user.uid}</p>
+                 <p className="text-xs text-slate-400 font-mono mt-1">TEL: {profile?.phone}</p>
+              </FuturisticCard>
+           </div>
+           <button onClick={() => auth.signOut()} className="w-full p-4 bg-rose-950/20 border border-rose-900/30 rounded-2xl text-rose-500 font-black uppercase text-[10px] active:scale-95 transition-all">Déconnexion</button>
         </div>
       );
       default: return null;
