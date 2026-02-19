@@ -11,8 +11,8 @@ import {
 import { 
   Shield, Skull, MessageSquare, Users, Send, Trophy, 
   Timer as TimerIcon, Home as HomeIcon, ArrowLeft, 
-  RotateCcw, Megaphone, CheckCircle2, Activity, LogOut,
-  User as UserIcon, Trash2, Zap, Clock
+  RotateCcw, Megaphone, CheckCircle2, LogOut,
+  User as UserIcon, Play, Pause
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ARMAND (PRODUCTION) ---
@@ -65,6 +65,13 @@ const App = () => {
   const [members, setMembers] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // LOGIQUE DU TIMER
+  const [seconds, setSeconds] = useState(180); // 3 minutes par défaut
+  const [isActive, setIsActive] = useState(false);
+  const [isResting, setIsResting] = useState(false);
+  const [currentRound, setCurrentRound] = useState(1);
+
+  // Authentification
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -84,18 +91,18 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
+  // Synchronisation des données
   useEffect(() => {
     if (!user) return;
     const path = ['artifacts', appId, 'public', 'data'];
     
-    // Listener de profil personnel
     const unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), (snap) => {
       if (snap.exists()) {
         setProfile({ id: snap.id, ...snap.data() });
         if (view === 'register') setView('home');
       } else {
         setProfile(null);
-        setView('register'); // Si pas de document, on force l'inscription
+        setView('register');
       }
       setLoading(false);
     }, (err) => {
@@ -115,6 +122,24 @@ const App = () => {
     return () => { unsubProfile(); unsubChat(); unsubMembers(); };
   }, [user]);
 
+  // Moteur du Timer
+  useEffect(() => {
+    let interval: any = null;
+    if (isActive && seconds > 0) {
+      interval = setInterval(() => setSeconds((s) => s - 1), 1000);
+    } else if (isActive && seconds === 0) {
+      if (!isResting) {
+        setIsResting(true);
+        setSeconds(60); // Repos 1min
+      } else {
+        setIsResting(false);
+        setSeconds(180);
+        setCurrentRound((r) => r + 1);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isActive, seconds, isResting]);
+
   useEffect(() => { 
     if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages, view]);
@@ -122,18 +147,30 @@ const App = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !user) return;
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-      text: inputText,
-      uid: user.uid,
-      sender: profile?.firstName || 'Anonyme',
-      timestamp: Date.now()
-    });
-    setInputText('');
+    const text = inputText;
+    setInputText(''); // Vider immédiatement pour feedback visuel
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+        text: text,
+        uid: user.uid,
+        sender: profile?.firstName || 'Anonyme',
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.error("Send Error:", err);
+      setInputText(text); // Restaurer en cas d'erreur
+    }
   };
 
   const handleLogout = async () => {
     setLoading(true);
     await signOut(auth);
+  };
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) return (
@@ -148,7 +185,6 @@ const App = () => {
   );
 
   const renderContent = () => {
-    // Si pas de profil en base, on affiche l'inscription
     if (!profile || view === 'register') return (
       <div className="p-8 space-y-6 animate-in fade-in pb-32">
         <div className="flex flex-col items-center mb-8">
@@ -190,7 +226,7 @@ const App = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {messages.map((m: any) => (
             <div key={m.id} className={`flex ${m.uid === user.uid ? 'justify-end' : 'justify-start'}`}>
-              <div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
+              <div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none shadow-[0_4px_15px_rgba(220,38,38,0.2)]' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
                 {m.uid !== user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase">{m.sender}</div>}
                 <div className="leading-relaxed">{m.text}</div>
                 <div className="text-[8px] opacity-30 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
@@ -200,8 +236,15 @@ const App = () => {
           <div ref={messagesEndRef} />
         </div>
         <form onSubmit={handleSendMessage} className="p-4 bg-slate-900/95 border-t border-slate-800 flex gap-2 sticky bottom-0">
-          <input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2 text-white text-sm outline-none focus:border-cyan-500"/>
-          <button className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform"><Send size={18}/></button>
+          <input 
+            value={inputText} 
+            onChange={e => setInputText(e.target.value)} 
+            placeholder="Message..." 
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2 text-white text-sm outline-none focus:border-cyan-500"
+          />
+          <button type="submit" className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform">
+            <Send size={18}/>
+          </button>
         </form>
       </div>
     );
@@ -209,15 +252,34 @@ const App = () => {
     if (view === 'timer') return (
       <div className="p-6 space-y-8 flex flex-col items-center justify-center h-full animate-in slide-in-from-bottom-4">
          <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Boxing <span className="text-rose-500">Timer</span></h2>
-         <div className="w-64 h-64 rounded-full border-8 border-slate-800 flex flex-col items-center justify-center bg-slate-900/50 shadow-2xl relative">
-            <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 animate-pulse"></div>
-            <div className="text-6xl font-black text-white font-mono tracking-tighter">03:00</div>
-            <div className="text-[10px] text-rose-500 font-bold tracking-[0.3em] mt-2 uppercase">Round 1</div>
+         <div className={`w-64 h-64 rounded-full border-8 transition-colors duration-500 flex flex-col items-center justify-center bg-slate-900/50 shadow-2xl relative ${isResting ? 'border-cyan-500 shadow-cyan-500/20' : 'border-slate-800 shadow-rose-500/20'}`}>
+            {isActive && <div className={`absolute inset-0 rounded-full border-2 animate-ping ${isResting ? 'border-cyan-500/20' : 'border-rose-500/20'}`}></div>}
+            <div className="text-6xl font-black text-white font-mono tracking-tighter">{formatTime(seconds)}</div>
+            <div className={`text-[10px] font-bold tracking-[0.3em] mt-2 uppercase ${isResting ? 'text-cyan-400' : 'text-rose-500'}`}>
+               {isResting ? 'REST' : `Round ${currentRound}`}
+            </div>
          </div>
          <div className="flex gap-4 w-full max-w-xs">
-            <button className="flex-1 bg-white text-black p-4 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition-all">Start</button>
-            <button onClick={() => setView('home')} className="p-4 border border-slate-800 rounded-2xl text-slate-400 active:rotate-180 transition-all duration-500"><RotateCcw/></button>
+            <button 
+              onClick={() => setIsActive(!isActive)}
+              className={`flex-1 p-4 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${isActive ? 'bg-slate-800 text-white' : 'bg-white text-black'}`}
+            >
+              {isActive ? <Pause size={20}/> : <Play size={20}/>}
+              {isActive ? 'Pause' : 'Start'}
+            </button>
+            <button 
+              onClick={() => {
+                setIsActive(false);
+                setSeconds(180);
+                setCurrentRound(1);
+                setIsResting(false);
+              }}
+              className="p-4 border border-slate-800 rounded-2xl text-slate-400 active:rotate-180 transition-all duration-500"
+            >
+              <RotateCcw/>
+            </button>
          </div>
+         <button onClick={() => setView('home')} className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-4 flex items-center gap-2"><ArrowLeft size={12}/> Retour au noyau</button>
       </div>
     );
 
@@ -247,7 +309,7 @@ const App = () => {
           <div className="absolute top-10 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full"></div>
           <Skull size={80} className="text-cyan-500 mb-4 relative z-10 drop-shadow-[0_0_15px_rgba(6,182,212,0.4)]" />
           <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-none">S.M.G Boxing</h1>
-          <p className="text-[10px] text-slate-500 tracking-[0.4em] uppercase font-mono mt-2 tracking-widest">Noyau Shogun v22.0</p>
+          <p className="text-[10px] text-slate-500 tracking-[0.4em] uppercase font-mono mt-2 tracking-widest">Noyau Shogun v23.0</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -265,14 +327,9 @@ const App = () => {
         <FuturisticCard title="SYSTÈME OPÉRATIONNEL" borderColor="slate">
           <div className="flex items-start gap-3">
             <Megaphone className="text-cyan-400 shrink-0 mt-1" size={16} />
-            <p className="text-xs text-slate-300 leading-relaxed italic">"Bienvenue {profile?.firstName}. Ton application est synchronisée. Tu peux maintenant l'utiliser sur ton téléphone."</p>
+            <p className="text-xs text-slate-300 leading-relaxed italic">"Bienvenue Coach. Le système est actif. Le timer est réglé sur 3min / 1min. Bonne séance."</p>
           </div>
         </FuturisticCard>
-
-        {/* BOUTON TEST INSCRIPTION */}
-        <button onClick={handleLogout} className="w-full p-4 border border-slate-800 rounded-2xl text-[9px] text-slate-600 uppercase font-black tracking-[0.2em] flex items-center justify-center gap-2 mt-4 hover:text-rose-500 transition-colors">
-          <LogOut size={12} /> Réinitialiser pour Test Inscription
-        </button>
       </div>
     );
   };
