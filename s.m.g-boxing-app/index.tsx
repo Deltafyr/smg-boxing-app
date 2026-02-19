@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, onAuthStateChanged, signInAnonymously, signOut 
@@ -20,9 +20,10 @@ import {
   Volume2, Download, Camera, Upload
 } from 'lucide-react';
 
-// --- CONFIGURATION FIREBASE ARMAND (VERSION STABLE VALIDÉE) ---
+// --- CONFIGURATION FIREBASE ARMAND (RÉTABLIE À L'IDENTIQUE) ---
+// La clé API a été corrigée pour utiliser exactement le "l" minuscule comme dans ton code de base.
 const firebaseConfig = {
-  apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
+  apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQlY",
   authDomain: "smg-boxing-club.firebaseapp.com",
   projectId: "smg-boxing-club",
   storageBucket: "smg-boxing-club.firebasestorage.app",
@@ -155,15 +156,13 @@ const App = () => {
   const [fights, setFights] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
   const [competitions, setCompetitions] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   // UI States
   const [inputText, setInputText] = useState('');
   const [selectedCompId, setSelectedCompId] = useState<string>('');
-  const [selectedFight, setSelectedFight] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Authentification (STRICT ARMAND LOGIC)
+  // 1. Authentification (STRICT ARMAND LOGIC RETABLIE)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -193,6 +192,9 @@ const App = () => {
         setProfile(null);
       }
       setLoading(false);
+    }, (err) => { 
+      console.error("Sync Error:", err); 
+      setLoading(false); 
     });
 
     const unsubChat = onSnapshot(collection(db, ...path, 'messages'), (s) => {
@@ -214,12 +216,18 @@ const App = () => {
 
   useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
 
-  // --- ACTIONS ---
+  // --- ACTIONS (LOGIQUE DE CONNEXION INITIALE) ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user || isSubmitting) return;
-    setIsSubmitting(true); setError(null);
+    if (!user) {
+      setError("Système non initialisé. Patiente un instant.");
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true); 
+    setError(null);
+    
     const f = new FormData(e.currentTarget);
     const fn = f.get('fn')?.toString().trim();
     const ph = f.get('ph')?.toString().trim();
@@ -248,6 +256,13 @@ const App = () => {
     } catch (err) { setError("Erreur réseau Cloud."); setIsSubmitting(false); }
   };
 
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || !user) return;
+    const text = inputText; setInputText('');
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), { text, uid: user.uid, sender: profile?.firstName || 'Elite', timestamp: Date.now() });
+  };
+
   const scanFFKMDA = async () => {
     setIsSubmitting(true);
     try { await fetch(`${SHOGUN_API_URL}?action=AUTO_SCAN_PLANNING`); } catch (e) { console.error(e); }
@@ -260,7 +275,7 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono p-10">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-6 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v45_Ready</p>
+      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v46_Ready</p>
     </div>
   );
 
@@ -272,7 +287,7 @@ const App = () => {
         </div>
         <h1 className="text-4xl font-black italic text-white uppercase leading-none text-center tracking-tighter">
           {authMode === 'login' ? 'Accès Club' : 'Elite Boxe'}<br/>
-          <span className="text-cyan-500 text-xl font-bold not-italic tracking-[0.3em] uppercase">S.M.G BOXING</span>
+          <span className="text-cyan-500 text-xl font-bold not-italic tracking-[0.3em] uppercase">S.M.G Boxe</span>
         </h1>
       </div>
       {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake"><AlertTriangle size={18} /> {error}</div>}
@@ -287,13 +302,13 @@ const App = () => {
             </div>
           </>
         )}
-        <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none" required disabled={isSubmitting} />
-        <button type="submit" disabled={isSubmitting} className={`w-full p-5 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl active:scale-95 transition-all mt-6 ${isSubmitting ? 'bg-slate-800' : 'bg-cyan-600 shadow-cyan-900/40'}`}>
+        <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500" required disabled={isSubmitting} />
+        <button type="submit" disabled={isSubmitting} className={`w-full p-5 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-6 ${isSubmitting ? 'bg-slate-800 opacity-50' : 'bg-cyan-600 shadow-cyan-900/40'}`}>
           {isSubmitting ? <Activity className="animate-spin" size={20} /> : (authMode === 'login' ? <LogIn size={20}/> : <UserPlus size={20}/>)}
           {isSubmitting ? 'CHRONOS_SYNC...' : (authMode === 'login' ? 'Entrer dans l\'arène' : 'Initialiser Profil')}
         </button>
       </form>
-      <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} className="w-full text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors py-2">
+      <button type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} className="w-full text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors py-2">
         {authMode === 'login' ? "Nouveau membre ? S'inscrire" : "Déjà membre ? Se connecter"}
       </button>
     </div>
@@ -358,7 +373,9 @@ const App = () => {
                   />
               )}
 
-              {view === 'timer' && <TimerModule />}
+              {view === 'timer' && (
+                 <div className="h-full flex flex-col pt-8"><button onClick={() => setView('home')} className="px-6 flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase mb-4"><ArrowLeft size={14}/> Retour Noyau</button><TimerModule /></div>
+              )}
 
               {view === 'chat' && (
                 <div className="flex flex-col h-screen pb-20 bg-slate-950 animate-in slide-in-from-right-4">
@@ -508,7 +525,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
                         const participants = currentCompetition.participants || [];
                         const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
-                    }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
+                    }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500 hover:bg-slate-800'}`}>
                         <span>{m.firstName} {m.lastName}</span>
                         {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
                     </button>
@@ -651,7 +668,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
 // --- MONTAGE FINAL SÉCURISÉ ---
 const container = document.getElementById('root');
 if (container) {
-  const root = createRoot(container);
+  const root = ReactDOM.createRoot(container);
   root.render(
     <React.StrictMode>
       <App />
