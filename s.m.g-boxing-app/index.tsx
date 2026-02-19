@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, signOut 
+  getAuth, onAuthStateChanged, signInAnonymously, signOut 
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, onSnapshot, 
-  addDoc, serverTimestamp, query, orderBy, limit 
+  addDoc, serverTimestamp 
 } from 'firebase/firestore';
 import { 
   Shield, Skull, MessageSquare, Users, Send, Trophy, 
   Timer as TimerIcon, Home as HomeIcon, ArrowLeft, 
   RotateCcw, Megaphone, CheckCircle2, Activity, LogOut,
-  Plus, User as UserIcon, Trash2, Zap, Clock
+  User as UserIcon, Trash2, Zap, Clock
 } from 'lucide-react';
 
-// --- CONFIGURATION FIREBASE ARMAND (SYNC CLOUD) ---
+// --- CONFIGURATION FIREBASE ARMAND (PRODUCTION) ---
 const firebaseConfig = {
   apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
   authDomain: "smg-boxing-club.firebaseapp.com",
@@ -65,11 +65,9 @@ const App = () => {
   const [members, setMembers] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Authentification (Rule 3)
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // En prod/Vercel, on utilise l'anonyme si pas de token
         await signInAnonymously(auth);
       } catch (err) {
         console.error("Auth Error:", err);
@@ -78,12 +76,14 @@ const App = () => {
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (!u) setLoading(false);
+      if (!u) {
+        setLoading(false);
+        setProfile(null);
+      }
     });
     return () => unsubscribe();
   }, []);
 
-  // 2. Synchronisation des données (Rule 1 & 2)
   useEffect(() => {
     if (!user) return;
     const path = ['artifacts', appId, 'public', 'data'];
@@ -92,8 +92,10 @@ const App = () => {
     const unsubProfile = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), (snap) => {
       if (snap.exists()) {
         setProfile({ id: snap.id, ...snap.data() });
+        if (view === 'register') setView('home');
       } else {
-        setView('register');
+        setProfile(null);
+        setView('register'); // Si pas de document, on force l'inscription
       }
       setLoading(false);
     }, (err) => {
@@ -101,13 +103,11 @@ const App = () => {
       setLoading(false);
     });
 
-    // Listener du chat
     const unsubChat = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), (s) => {
       const msgs = s.docs.map(d => ({id: d.id, ...d.data()}));
       setMessages(msgs.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0)));
     });
 
-    // Listener des membres (Roster)
     const unsubMembers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (s) => {
       setMembers(s.docs.map(d => ({id: d.id, ...d.data()})));
     });
@@ -131,6 +131,11 @@ const App = () => {
     setInputText('');
   };
 
+  const handleLogout = async () => {
+    setLoading(true);
+    await signOut(auth);
+  };
+
   if (loading) return (
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono">
       <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
@@ -138,14 +143,21 @@ const App = () => {
         <Skull size={64} className="text-cyan-500 relative z-10" />
       </div>
       <h1 className="text-white font-black tracking-tighter text-xl uppercase">S.M.G Boxing</h1>
-      <p className="text-cyan-600 text-[10px] animate-pulse mt-2 uppercase tracking-widest">Initialisation Shogun Core...</p>
+      <p className="text-cyan-600 text-[10px] animate-pulse mt-2 uppercase tracking-widest">Liaison Shogun Core...</p>
     </div>
   );
 
   const renderContent = () => {
-    if (view === 'register') return (
+    // Si pas de profil en base, on affiche l'inscription
+    if (!profile || view === 'register') return (
       <div className="p-8 space-y-6 animate-in fade-in pb-32">
-        <h1 className="text-4xl font-black italic text-white uppercase leading-none">Nouveau<br/><span className="text-cyan-500">Profil</span></h1>
+        <div className="flex flex-col items-center mb-8">
+           <div className="p-4 bg-cyan-500/10 rounded-full border border-cyan-500/20 mb-4">
+              <UserIcon size={40} className="text-cyan-500" />
+           </div>
+           <h1 className="text-4xl font-black italic text-white uppercase leading-none text-center">Nouveau<br/><span className="text-cyan-500 text-2xl">Profil Club</span></h1>
+        </div>
+        
         <form onSubmit={async (e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
@@ -158,12 +170,13 @@ const App = () => {
             joinedAt: serverTimestamp(),
             isMedicalOk: false
           }, { merge: true });
-          setView('home');
         }} className="space-y-4">
-          <input name="fn" placeholder="Prénom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-cyan-500" required />
-          <input name="ln" placeholder="Nom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-cyan-500" required />
-          <input name="ph" placeholder="Téléphone" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-white outline-none focus:border-cyan-500" required />
-          <button className="w-full bg-cyan-600 p-4 rounded-2xl font-black text-white uppercase tracking-widest shadow-xl shadow-cyan-900/20 active:scale-95 transition-all">S'inscrire</button>
+          <div className="grid grid-cols-2 gap-3">
+             <input name="fn" placeholder="Prénom" className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />
+             <input name="ln" placeholder="Nom" className="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />
+          </div>
+          <input name="ph" placeholder="N° Téléphone" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all" required />
+          <button className="w-full bg-cyan-600 p-5 rounded-2xl font-black text-white uppercase text-sm tracking-widest shadow-xl shadow-cyan-900/30 active:scale-95 transition-all">Valider Inscription</button>
         </form>
       </div>
     );
@@ -172,16 +185,13 @@ const App = () => {
       <div className="flex flex-col h-screen pb-20 bg-slate-950">
         <div className="p-4 border-b border-slate-800 flex items-center gap-3 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
           <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><ArrowLeft className="text-cyan-500" size={20}/></button>
-          <div>
-            <h2 className="text-white font-bold text-sm leading-none">Club Général</h2>
-            <span className="text-[9px] text-cyan-400 font-mono">Liaison chiffrée</span>
-          </div>
+          <div><h2 className="text-white font-bold text-sm leading-none">Club Chat</h2><span className="text-[9px] text-cyan-400 font-mono">Sync Active</span></div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {messages.map((m: any) => (
             <div key={m.id} className={`flex ${m.uid === user.uid ? 'justify-end' : 'justify-start'}`}>
               <div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
-                {!m.uid === user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase tracking-tighter">{m.sender}</div>}
+                {m.uid !== user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase">{m.sender}</div>}
                 <div className="leading-relaxed">{m.text}</div>
                 <div className="text-[8px] opacity-30 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
               </div>
@@ -190,8 +200,8 @@ const App = () => {
           <div ref={messagesEndRef} />
         </div>
         <form onSubmit={handleSendMessage} className="p-4 bg-slate-900/95 border-t border-slate-800 flex gap-2 sticky bottom-0">
-          <input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2 text-white text-sm outline-none focus:border-cyan-500 transition-all"/>
-          <button className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg shadow-cyan-900/20 active:scale-90 transition-transform"><Send size={18}/></button>
+          <input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2 text-white text-sm outline-none focus:border-cyan-500"/>
+          <button className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform"><Send size={18}/></button>
         </form>
       </div>
     );
@@ -215,17 +225,14 @@ const App = () => {
         <div className="p-6 space-y-6 animate-in slide-in-from-right-4 pb-32">
            <div className="flex items-center gap-3">
               <button onClick={() => setView('home')}><ArrowLeft className="text-cyan-500"/></button>
-              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Athlètes <span className="text-cyan-500">SMG</span></h2>
+              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Membres <span className="text-cyan-500">SMG</span></h2>
            </div>
            <div className="space-y-3">
               {members.map(m => (
                  <FuturisticCard key={m.id} borderColor={m.role === 'admin' ? 'rose' : 'slate'} className="flex justify-between items-center py-3">
                     <div className="flex items-center gap-3">
                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-500 font-black border border-slate-700">{m.firstName?.charAt(0)}</div>
-                       <div>
-                          <div className="text-sm font-bold text-white uppercase">{m.firstName} {m.lastName}</div>
-                          <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{m.role}</div>
-                       </div>
+                       <div><div className="text-sm font-bold text-white uppercase">{m.firstName} {m.lastName}</div><div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{m.role}</div></div>
                     </div>
                     <CheckCircle2 size={18} className={m.isMedicalOk ? 'text-cyan-500' : 'text-slate-800'} />
                  </FuturisticCard>
@@ -240,32 +247,32 @@ const App = () => {
           <div className="absolute top-10 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full"></div>
           <Skull size={80} className="text-cyan-500 mb-4 relative z-10 drop-shadow-[0_0_15px_rgba(6,182,212,0.4)]" />
           <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-none">S.M.G Boxing</h1>
-          <p className="text-[10px] text-slate-500 tracking-[0.4em] uppercase font-mono mt-2 tracking-widest">Noyau Shogun v20.0</p>
+          <p className="text-[10px] text-slate-500 tracking-[0.4em] uppercase font-mono mt-2 tracking-widest">Noyau Shogun v22.0</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <FuturisticCard borderColor="cyan" onClick={() => setView('timer')} className="flex flex-col items-center gap-3 py-6">
-            <TimerIcon size={32} className="text-cyan-500" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Training</span>
+            <TimerIcon size={32} className="text-cyan-500" /><span className="text-[10px] font-black text-white uppercase tracking-widest">Training</span>
           </FuturisticCard>
           <FuturisticCard borderColor="rose" onClick={() => setView('chat')} className="flex flex-col items-center gap-3 py-6">
-            <MessageSquare size={32} className="text-rose-500" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Club Chat</span>
+            <MessageSquare size={32} className="text-rose-500" /><span className="text-[10px] font-black text-white uppercase tracking-widest">Club Chat</span>
           </FuturisticCard>
           <FuturisticCard borderColor="slate" onClick={() => setView('roster')} className="flex flex-col items-center gap-3 py-6 col-span-2">
-            <Users size={32} className="text-slate-400" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Liste des Membres</span>
+            <Users size={32} className="text-slate-400" /><span className="text-[10px] font-black text-white uppercase tracking-widest">Roster Athlètes</span>
           </FuturisticCard>
         </div>
 
         <FuturisticCard title="SYSTÈME OPÉRATIONNEL" borderColor="slate">
           <div className="flex items-start gap-3">
             <Megaphone className="text-cyan-400 shrink-0 mt-1" size={16} />
-            <p className="text-xs text-slate-300 leading-relaxed italic">
-              "Prêt {profile?.firstName}. Ton application est maintenant prête pour le déploiement mondial sur Vercel. Toutes les données sont synchronisées avec ton projet Firebase."
-            </p>
+            <p className="text-xs text-slate-300 leading-relaxed italic">"Bienvenue {profile?.firstName}. Ton application est synchronisée. Tu peux maintenant l'utiliser sur ton téléphone."</p>
           </div>
         </FuturisticCard>
+
+        {/* BOUTON TEST INSCRIPTION */}
+        <button onClick={handleLogout} className="w-full p-4 border border-slate-800 rounded-2xl text-[9px] text-slate-600 uppercase font-black tracking-[0.2em] flex items-center justify-center gap-2 mt-4 hover:text-rose-500 transition-colors">
+          <LogOut size={12} /> Réinitialiser pour Test Inscription
+        </button>
       </div>
     );
   };
@@ -274,17 +281,15 @@ const App = () => {
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
       <div className="max-w-md mx-auto min-h-screen bg-slate-950 border-x border-slate-900/50 relative shadow-2xl overflow-hidden flex flex-col">
         <main className="flex-1 overflow-y-auto custom-scrollbar">{renderContent()}</main>
-        
-        {profile && view !== 'chat' && (
+        {profile && view !== 'chat' && view !== 'register' && (
           <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center z-50">
-             <button onClick={() => setView('home')} className={`p-2 transition-colors ${view === 'home' ? 'text-cyan-400' : 'text-slate-600'}`}><HomeIcon size={20}/></button>
-             <button onClick={() => setView('timer')} className={`p-2 transition-colors ${view === 'timer' ? 'text-cyan-400' : 'text-slate-600'}`}><TimerIcon size={20}/></button>
-             <button onClick={() => setView('chat')} className={`p-2 transition-colors ${view === 'chat' ? 'text-cyan-400' : 'text-slate-600'}`}><MessageSquare size={20}/></button>
-             <button onClick={() => auth.signOut()} className="p-2 text-rose-500 opacity-50 hover:opacity-100"><LogOut size={18}/></button>
+             <button onClick={() => setView('home')} className={`p-2 ${view === 'home' ? 'text-cyan-400' : 'text-slate-600'}`}><HomeIcon size={20}/></button>
+             <button onClick={() => setView('timer')} className={`p-2 ${view === 'timer' ? 'text-cyan-400' : 'text-slate-600'}`}><TimerIcon size={20}/></button>
+             <button onClick={() => setView('chat')} className={`p-2 ${view === 'chat' ? 'text-cyan-400' : 'text-slate-600'}`}><MessageSquare size={20}/></button>
+             <button onClick={handleLogout} className="p-2 text-rose-500/50"><LogOut size={18}/></button>
           </nav>
         )}
       </div>
-
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
@@ -296,14 +301,9 @@ const App = () => {
   );
 };
 
-// Montage final pour l'environnement Preview
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
+  ReactDOM.createRoot(rootElement).render(<React.StrictMode><App /></React.StrictMode>);
 }
 
 export default App;
