@@ -17,8 +17,9 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ---
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
+  apiKey: "AIzaSyBn56YlvO5xEJtStcmqb2CpjPr1IoqxQlY",
   authDomain: "smg-boxing-club.firebaseapp.com",
   projectId: "smg-boxing-club",
   storageBucket: "smg-boxing-club.firebasestorage.app",
