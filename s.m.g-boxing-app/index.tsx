@@ -19,7 +19,7 @@ import {
   CheckSquare, Square, Scale, History, Plus, ChevronUp, ChevronDown
 } from 'lucide-react';
 
-// --- CONFIGURATION FIREBASE ARMAND (VERSION STABLE VALIDÉE) ---
+// --- CONFIGURATION FIREBASE ARMAND (SYSTÈME RÉEL) ---
 const firebaseConfig = {
   apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
   authDomain: "smg-boxing-club.firebaseapp.com",
@@ -30,13 +30,21 @@ const firebaseConfig = {
   measurementId: "G-Y4W98BNTHN"
 };
 
-// Initialisation sécurisée
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Détection d'environnement pour éviter les erreurs de clé API dans l'aperçu
+const getActiveConfig = () => {
+  if (typeof __firebase_config !== 'undefined') {
+    return JSON.parse(__firebase_config);
+  }
+  return firebaseConfig;
+};
+
+const activeConfig = getActiveConfig();
+const app = getApps().length === 0 ? initializeApp(activeConfig) : getApps()[0];
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'smg-boxing-club';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'smg-boxing-club';
 
-// URL de ton Google Apps Script (Shogun Engine V81)
+// URL de ton Google Apps Script
 const SHOGUN_API_URL = "https://script.google.com/macros/s/AKfycbz.../exec";
 
 // --- UTILS : LOGIQUE FFKMDA ---
@@ -104,7 +112,6 @@ const App = () => {
   const [profile, setProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // States Collections
   const [members, setMembers] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [fights, setFights] = useState<any[]>([]);
@@ -112,21 +119,24 @@ const App = () => {
   const [competitions, setCompetitions] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
 
-  // UI States
   const [inputText, setInputText] = useState('');
   const [selectedCompId, setSelectedCompId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Timer States
   const [seconds, setSeconds] = useState(180); 
   const [isActive, setIsActive] = useState(false);
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Authentification (REPRISE EXACTE DE VOTRE CODE STABLE)
+  // 1. Authentification
   useEffect(() => {
     const initAuth = async () => {
-      try { await signInAnonymously(auth); } catch (e) { console.error("Auth init error:", e); }
+      try {
+        await signInAnonymously(auth);
+      } catch (e: any) {
+        console.error("Auth init error:", e.message);
+        setError("Erreur Firebase : " + e.message);
+      }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -136,7 +146,7 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Synchronisation Cloud Temps Réel
+  // 2. Synchronisation Cloud
   useEffect(() => {
     if (!user) return;
     const path = ['artifacts', appId, 'public', 'data'];
@@ -159,7 +169,7 @@ const App = () => {
     onSnapshot(collection(db, ...path, 'members'), s => setMembers(s.docs.map(d => ({id: d.id, ...d.data()}))));
     onSnapshot(collection(db, ...path, 'fights'), s => setFights(s.docs.map(d => ({id: d.id, ...d.data()}))));
     onSnapshot(collection(db, ...path, 'agenda'), s => setAgenda(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    onSnapshot(collection(db, ...path, 'announcements'), s => setAnnouncements(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a: any, b: any) => b.timestamp - a.timestamp)));
+    onSnapshot(collection(db, ...path, 'announcements'), s => setAnnouncements(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => b.timestamp - a.timestamp)));
     onSnapshot(collection(db, ...path, 'competitions'), s => {
         const comps = s.docs.map(d => ({id: d.id, ...d.data()}));
         setCompetitions(comps.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -183,7 +193,7 @@ const App = () => {
 
   useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
 
-  // --- ACTIONS AUTH (VOTRE BASE STABLE) ---
+  // --- ACTIONS ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -241,7 +251,7 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono p-10">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-6 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v44_Fixed</p>
+      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v44_Ready</p>
     </div>
   );
 
@@ -291,7 +301,7 @@ const App = () => {
                   <header className="flex justify-between items-start py-8 relative">
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
                     <div>
-                      <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">SMG <span className="text-cyan-500">Boxe</span></h1>
+                      <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none tracking-tighter">SMG <span className="text-cyan-500">Boxe</span></h1>
                       <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 font-bold">Coach {profile?.firstName} • BMF2 Master</p>
                     </div>
                     <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl"><Skull size={24} className="text-cyan-500" /></div>
@@ -345,314 +355,4 @@ const App = () => {
                   <div className={`w-72 h-72 rounded-full border-[15px] transition-all duration-700 flex flex-col items-center justify-center bg-slate-900/60 shadow-2xl relative ${isResting ? 'border-cyan-500 shadow-cyan-500/20' : 'border-slate-800 shadow-rose-500/20'}`}>
                     {isActive && <div className={`absolute inset-0 rounded-full border-2 animate-ping ${isResting ? 'border-cyan-500/20' : 'border-rose-500/20'}`}></div>}
                     <div className="text-7xl font-black text-white font-mono tracking-tighter">{formatTime(seconds)}</div>
-                    <div className={`text-xs font-black mt-3 uppercase tracking-widest ${isResting ? 'text-cyan-400' : 'text-rose-500'}`}>{isResting ? 'REPOS' : `Round ${currentRound}`}</div>
-                  </div>
-                  <div className="flex gap-4 w-full max-w-xs mt-12">
-                    <button onClick={() => setIsActive(!isActive)} className={`flex-1 p-5 rounded-3xl font-black uppercase text-sm shadow-xl active:scale-95 transition-all ${isActive ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-black'}`}>{isActive ? 'Pause' : 'Start'}</button>
-                    <button onClick={() => { setIsActive(false); setSeconds(180); setCurrentRound(1); setIsResting(false); }} className="p-5 border border-slate-800 rounded-3xl text-slate-400 hover:text-white transition-all"><RotateCcw/></button>
-                  </div>
-                  <button onClick={() => setView('home')} className="text-slate-600 text-[10px] font-bold uppercase mt-12 flex items-center gap-2 hover:text-cyan-500 transition-colors"><ArrowLeft size={12}/> Retour</button>
-                </div>
-              )}
-
-              {view === 'chat' && (
-                <div className="flex flex-col h-screen pb-20 bg-slate-950 animate-in slide-in-from-right-4">
-                  <div className="p-4 border-b border-slate-800 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-20 shadow-lg"><button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-xl text-cyan-500"><ArrowLeft size={20}/></button><div><h2 className="text-white font-bold text-sm leading-none">Club Chat</h2><span className="text-[9px] text-cyan-400 font-mono mt-1 block tracking-tighter">Sync Cloud Active</span></div></div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">{messages.map((m: any) => (<div key={m.id} className={`flex ${m.uid === user.uid ? 'justify-end' : 'justify-start'}`}><div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none shadow-lg' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>{m.uid !== user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase tracking-tighter">{m.sender}</div>}<div className="leading-relaxed">{m.text}</div></div></div>))}<div ref={messagesEndRef} /></div>
-                  <form onSubmit={handleSendMessage} className="p-4 bg-slate-900 border-t border-slate-800 flex gap-2 sticky bottom-0"><input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2.5 text-white text-sm outline-none focus:border-cyan-500 transition-all" /><button type="submit" className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform"><Send size={18}/></button></form>
-                </div>
-              )}
-
-              {view === 'calendar' && (
-                <div className="p-6 space-y-6 animate-in slide-in-from-bottom-4 pb-32">
-                   <div className="flex items-center gap-3"><button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-purple-500 shadow-lg"><ArrowLeft size={18}/></button><h2 className="text-2xl font-black text-white italic uppercase leading-none tracking-tighter">Agenda <span className="text-purple-500">Club</span></h2></div>
-                   <div className="space-y-4 relative pl-4"><div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500/50 to-transparent"></div>{agenda.length > 0 ? agenda.sort((a,b) => a.date - b.date).map(ev => (<div key={ev.id} className="relative pl-8"><div className="absolute left-0 top-0 w-6 h-6 rounded-full bg-slate-950 border border-purple-500 z-10 flex items-center justify-center text-[8px] font-black text-purple-400">{new Date(ev.date?.seconds * 1000).getDate()}</div><FuturisticCard title={new Date(ev.date?.seconds * 1000).toLocaleDateString()} borderColor="slate"><h3 className="text-sm font-bold text-white uppercase italic">{ev.title}</h3><p className="text-[10px] text-slate-500 mt-1 italic leading-relaxed">{ev.description}</p></FuturisticCard></div>)) : <p className="text-center text-slate-700 uppercase font-black text-[9px] py-20 tracking-widest italic">Aucun événement planifié</p>}</div>
-                </div>
-              )}
-
-              {view === 'roster' && (
-                <div className="p-6 space-y-6 animate-in slide-in-from-right-4 pb-32 h-full">
-                   <div className="flex items-center gap-3"><button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-cyan-500 shadow-lg"><ArrowLeft size={18}/></button><h2 className="text-2xl font-black text-white italic uppercase leading-none tracking-tighter">Roster <span className="text-cyan-500">SMG</span></h2></div>
-                   <div className="space-y-3 overflow-y-auto pr-1">
-                      {members.map(m => {
-                         const { age, cat } = getFFKMDACategory(m.birthDate);
-                         return (
-                           <FuturisticCard key={m.id} borderColor={m.role === 'Admin' ? 'rose' : 'slate'} className="flex justify-between items-center py-4">
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center text-cyan-500 font-black border border-slate-800 shadow-xl">{m.firstName?.charAt(0)}</div>
-                                 <div>
-                                    <div className="text-sm font-bold text-white uppercase tracking-tight leading-none">{m.firstName} {m.lastName}</div>
-                                    <div className="flex gap-2 mt-2">
-                                       <span className="text-[8px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded font-black uppercase tracking-widest">{cat}</span>
-                                       <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-black uppercase">{age} ANS</span>
-                                    </div>
-                                 </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                 {m.isMedicalOk ? <CheckCircle2 size={16} className="text-green-500" /> : <AlertTriangle size={16} className="text-rose-500 animate-pulse" />}
-                                 <ChevronRight size={14} className="text-slate-800" />
-                              </div>
-                           </FuturisticCard>
-                         );
-                      })}
-                   </div>
-                </div>
-              )}
-
-              {view === 'profile' && (
-                <div className="p-8 space-y-8 animate-in fade-in pb-32 text-center">
-                   <div className="relative inline-block mx-auto mt-10"><div className="absolute inset-0 bg-cyan-500 blur-2xl opacity-10"></div><div className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-4xl font-black shadow-2xl relative shadow-cyan-900/40 text-white italic">{profile?.firstName?.charAt(0)}</div></div>
-                   <div><h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">{profile?.firstName} {profile?.lastName}</h2><p className="text-cyan-500 text-[10px] font-bold uppercase tracking-[0.3em]">{profile?.role} • BOXEUR ELITE</p></div>
-                   <div className="grid grid-cols-3 gap-3"><div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl"><div className="text-[10px] text-green-500 font-black uppercase">Wins</div><div className="text-xl font-black text-white">{profile?.palmares?.wins || 0}</div></div><div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl"><div className="text-[10px] text-rose-500 font-black uppercase">Losses</div><div className="text-xl font-black text-white">{profile?.palmares?.losses || 0}</div></div><div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl"><div className="text-[10px] text-slate-500 font-black uppercase">Draws</div><div className="text-xl font-black text-white">{profile?.palmares?.draws || 0}</div></div></div>
-                   <FuturisticCard title="PALMARÈS FINAL" borderColor="gold"><div className="flex items-center gap-4 text-left"><Medal size={32} className="text-yellow-500 shrink-0" /><div><div className="text-xs font-bold text-white uppercase tracking-tighter">Historique Elite</div><p className="text-[10px] text-slate-500 leading-relaxed italic">Synchronisation Cloud Active</p></div></div></FuturisticCard>
-                   <button onClick={() => signOut(auth)} className="w-full p-5 bg-rose-950/20 border border-rose-900/30 rounded-3xl flex justify-between items-center text-rose-500 active:scale-95 transition-all mt-6 font-black uppercase text-[10px] tracking-widest"><span>Détruire la session</span><LogOut size={16}/></button>
-                </div>
-              )}
-            </div>
-          )}
-        </main>
-        {profile && view !== 'chat' && (<nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center z-50 px-6 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]"><button onClick={() => setView('home')} className={`p-3 rounded-2xl transition-all ${view === 'home' ? 'text-cyan-400 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'text-slate-600'}`}><HomeIcon size={24}/></button><button onClick={() => setView('tournament')} className={`p-3 rounded-2xl transition-all ${view === 'tournament' ? 'text-yellow-500 bg-yellow-500/10 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'text-slate-600'}`}><Trophy size={24}/></button><button onClick={() => setView('timer')} className={`p-3 rounded-2xl transition-all ${view === 'timer' ? 'text-cyan-400 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'text-slate-600'}`}><TimerIcon size={24}/></button><button onClick={() => setView('profile')} className={`p-3 rounded-2xl transition-all ${view === 'profile' ? 'text-blue-400 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'text-slate-600'}`}><UserIcon size={24}/></button></nav>)}
-      </div>
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #0ea5e9; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fade-in 0.4s ease-out forwards; }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
-      `}</style>
-    </div>
-  );
-};
-
-// --- MODULE COMPETITION COMPLET (CORRIGÉ ET ADAPTÉ) ---
-
-const TournamentModule = ({ profile, members, competitions, fights, selectedCompId, setSelectedCompId, onNavigate, onScan, isSyncing }: any) => {
-  const isStaff = profile.role === 'Admin' || profile.role === 'Coach';
-  const [activeTab, setActiveTab] = useState<'GESTION' | 'TIMELINE' | 'PALMARES' | 'PLANNING'>(isStaff ? 'GESTION' : 'TIMELINE');
-  const [selectedFight, setSelectedFight] = useState<any>(null);
-  const [weighInStatus, setWeighInStatus] = useState<Record<string, boolean>>({});
-  
-  const currentCompetition = competitions.find((c: any) => c.id === selectedCompId);
-  const liveFights = fights.filter((f: any) => f.competitionId === selectedCompId && f.status !== 'Finished');
-
-  const getAutoStage = (fighterId: string, currentFightId: string): string => {
-    const fighterFights = fights.filter((f: any) => f.fighterId === fighterId && f.competitionId === selectedCompId).sort((a: any, b: any) => a.fightNumber - b.fightNumber);
-    const index = fighterFights.findIndex((f: any) => f.id === currentFightId);
-    const reverseIndex = fighterFights.length - 1 - index;
-    if (reverseIndex === 0) return 'Finale';
-    if (reverseIndex === 1) return 'Demi-finale';
-    return 'Éliminatoire';
-  };
-
-  const updateFight = async (id: string, updates: any) => {
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', id), updates);
-    setSelectedFight(null);
-  };
-
-  return (
-    <div className="p-4 space-y-6 animate-in slide-in-from-right-4 pb-20">
-      <div className="flex justify-between items-center">
-        <button onClick={onNavigate} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-yellow-500 shadow-lg"><ArrowLeft size={18}/></button>
-        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Arena Elite</h2>
-        <button onClick={onScan} disabled={isSyncing} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-500 active:scale-90 transition-all">
-          <DownloadCloud size={18} className={isSyncing ? 'animate-bounce' : ''} />
-        </button>
-      </div>
-
-      <select value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)} className="w-full bg-slate-900 text-xs text-cyan-400 font-bold p-4 rounded-2xl border border-slate-800 outline-none shadow-xl">
-        {competitions.length > 0 ? competitions.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>) : <option>Aucun tournoi</option>}
-      </select>
-
-      <div className="flex space-x-1 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
-        {['PLANNING', 'GESTION', 'TIMELINE', 'PALMARES'].map((tab: any) => (
-          (tab === 'PLANNING' || tab === 'GESTION') && !isStaff ? null :
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === tab ? 'bg-cyan-600 text-white shadow-xl' : 'text-slate-500'}`}>{tab}</button>
-        ))}
-      </div>
-
-      {activeTab === 'PLANNING' && (
-        <FuturisticCard title="NOUVEL ÉVÉNEMENT" borderColor="cyan">
-           <form onSubmit={async (e: any) => {
-              e.preventDefault();
-              const f = new FormData(e.target);
-              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'competitions'), {
-                  name: f.get('name'), discipline: f.get('discipline'), date: f.get('date'), location: f.get('location'), participants: []
-              });
-              e.target.reset();
-           }} className="space-y-4">
-              <input name="name" placeholder="Nom du tournoi..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-500" required />
-              <div className="grid grid-cols-2 gap-2">
-                 <input name="date" type="date" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
-                 <input name="discipline" placeholder="Kick-Boxing" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
-              </div>
-              <input name="location" placeholder="Lieu..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
-              <button type="submit" className="w-full bg-cyan-600 py-4 rounded-2xl text-[10px] font-black uppercase italic shadow-xl">Publier au Club</button>
-           </form>
-        </FuturisticCard>
-      )}
-
-      {activeTab === 'GESTION' && (
-        <div className="space-y-6">
-           <FuturisticCard title="INSCRIPTIONS ET PESÉE" borderColor="cyan">
-              <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                {members.filter((m:any) => m.category === 'Compétiteur' || m.category === 'Loisir').map((m: any) => {
-                  const isReg = currentCompetition?.participants?.includes(m.id);
-                  return (
-                    <button key={m.id} onClick={async () => {
-                        const participants = currentCompetition.participants || [];
-                        const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
-                    }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
-                        <span>{m.firstName} {m.lastName}</span>
-                        {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
-                    </button>
-                  );
-                })}
-              </div>
-           </FuturisticCard>
-
-           <div className="space-y-4">
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Gestion des Fiches de Match</h3>
-              {members.filter((m: any) => currentCompetition?.participants?.includes(m.id)).map((m: any) => (
-                <div key={m.id} className="space-y-2">
-                   <div className="flex justify-between items-center border-b border-slate-800 pb-2 px-1">
-                      <span className="text-sm font-black text-white italic uppercase tracking-tighter leading-none">{m.firstName} {m.lastName}</span>
-                      <button onClick={async () => {
-                         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'fights'), {
-                             competitionId: selectedCompId, fighterId: m.id, fighterName: `${m.firstName} ${m.lastName}`,
-                             fightNumber: 1, ring: "1", helmetColor: "Bleu", status: "Pending"
-                         });
-                      }} className="bg-cyan-600 p-1.5 rounded-lg text-white shadow-lg active:scale-90 transition-all"><Plus size={16}/></button>
-                   </div>
-                   <div className="grid gap-2">
-                      {fights.filter((f:any) => f.fighterId === m.id && f.competitionId === selectedCompId).map((f: any) => (
-                        <FuturisticCard key={f.id} onClick={() => setSelectedFight(f)} borderColor={f.status === 'Finished' ? 'slate' : 'cyan'} className={f.status === 'Finished' ? 'opacity-40 grayscale' : 'hover:border-cyan-400'}>
-                           <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 bg-slate-950 rounded-xl flex flex-col items-center justify-center border border-slate-800 shadow-inner">
-                                    <span className="text-lg font-black text-white">{f.fightNumber}</span>
-                                 </div>
-                                 <div className="text-xs font-black text-white uppercase">{getAutoStage(m.id, f.id)}</div>
-                              </div>
-                              {f.status === 'Finished' && <div className={`text-[10px] font-black italic uppercase ${f.resultat === 'Victoire' ? 'text-green-500' : 'text-rose-500'}`}>{f.resultat}</div>}
-                           </div>
-                        </FuturisticCard>
-                      ))}
-                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
-      )}
-
-      {activeTab === 'TIMELINE' && (
-        <div className="space-y-8">
-           {[...new Set(liveFights.map((f:any) => f.ring))].sort().map(ring => (
-             <div key={ring} className="space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><MapPin size={14} className="text-cyan-500"/><h3 className="text-xs font-black text-white uppercase italic">Aire {ring}</h3></div>
-                <div className="space-y-4">
-                   {liveFights.filter((f:any) => f.ring === ring).sort((a:any,b:any) => a.fightNumber - b.fightNumber).map((f: any) => (
-                     <div key={f.id} onClick={() => isStaff && setSelectedFight(f)} className="relative flex items-center p-5 bg-slate-900 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl transition-all active:scale-98">
-                        <div className={`absolute left-0 top-0 w-1.5 h-full ${f.helmetColor === 'Rouge' ? 'bg-rose-600' : 'bg-cyan-500'}`}></div>
-                        <div className="w-14 h-14 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col items-center justify-center mr-4 shadow-inner">
-                           <span className="text-xl font-black text-white">{f.fightNumber}</span>
-                        </div>
-                        <div className="flex-1">
-                           <h4 className={`text-xl font-black italic tracking-tighter uppercase leading-none mb-1.5 ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>{f.fighterName}</h4>
-                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{getAutoStage(f.fighterId, f.id)}</span>
-                        </div>
-                        {profile.id === f.fighterId && <div className="p-2 bg-cyan-500/10 rounded-xl animate-pulse"><Shield size={24} className="text-cyan-400" /></div>}
-                     </div>
-                   ))}
-                </div>
-             </div>
-           ))}
-           {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-24 opacity-30"><Trophy size={64} className="mb-4" /><p className="font-black italic uppercase tracking-widest text-slate-700">Arène vide</p></div>}
-        </div>
-      )}
-
-      {activeTab === 'PALMARES' && (
-        <div className="space-y-4">
-           {members.map((m: any) => {
-               const wins = fights.filter((f:any) => f.fighterId === m.id && f.resultat === 'Victoire').length;
-               if (wins === 0 && m.role !== 'Admin') return null;
-               return (
-                 <FuturisticCard key={m.id} title="ELITE PROFILE" borderColor={wins > 0 ? 'gold' : 'slate'} className="bg-slate-950/40">
-                    <div className="flex justify-between items-center">
-                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-500 font-black italic border border-slate-700 shadow-xl">{m.firstName?.charAt(0)}</div>
-                          <div>
-                             <div className="text-sm font-bold text-white uppercase tracking-tighter italic">{m.firstName} {m.lastName}</div>
-                             <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Victoires Nationales</div>
-                          </div>
-                       </div>
-                       <div className="text-right flex flex-col items-end">
-                          <Medal size={20} className="text-yellow-500 mb-1 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]"/>
-                          <span className="text-2xl font-black text-white leading-none italic">{wins}</span>
-                       </div>
-                    </div>
-                 </FuturisticCard>
-               );
-           })}
-        </div>
-      )}
-
-      {/* MODAL CONTRÔLE SHOGUN */}
-      <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Contrôle Match">
-         <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase">Aire</label>
-                  <input defaultValue={selectedFight?.ring} id="m_ring" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white outline-none focus:border-yellow-500 shadow-inner" />
-               </div>
-               <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase">N° Combat</label>
-                  <input defaultValue={selectedFight?.fightNumber} id="m_num" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner" />
-               </div>
-            </div>
-            <div className="space-y-3">
-               <label className="text-[10px] text-slate-500 font-black uppercase text-center block">Saisir Résultat Officiel</label>
-               <div className="grid grid-cols-2 gap-3">
-                  <button onClick={async () => {
-                      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), { resultat: 'Victoire', status: 'Finished' });
-                      setSelectedFight(null);
-                  }} className="p-4 bg-green-900/20 border border-green-500/30 rounded-2xl text-green-500 font-black text-[12px] uppercase italic active:scale-95 transition-all">Victoire</button>
-                  <button onClick={async () => {
-                      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), { resultat: 'Défaite', status: 'Finished' });
-                      setSelectedFight(null);
-                  }} className="p-4 bg-rose-900/20 border border-rose-500/30 rounded-2xl text-rose-500 font-black text-[12px] uppercase italic active:scale-95 transition-all">Défaite</button>
-               </div>
-            </div>
-            <button 
-               onClick={async () => {
-                  const updates = { 
-                    ring: (document.getElementById('m_ring') as any).value, 
-                    fightNumber: (document.getElementById('m_num') as any).value 
-                  };
-                  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), updates);
-                  setSelectedFight(null);
-               }} 
-               className="w-full p-5 bg-yellow-600 rounded-3xl font-black uppercase text-white text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
-            >
-               <Save size={20}/> Valider Modifications
-            </button>
-         </div>
-      </Modal>
-    </div>
-  );
-};
-
-// --- MONTAGE FINAL SÉCURISÉ ---
-const container = document.getElementById('root');
-if (container) {
-  const root = createRoot(container);
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-}
-
-export default App;
+                    <div className={`text-xs font-black mt
