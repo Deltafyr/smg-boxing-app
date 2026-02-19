@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import { initializeApp, getApps } from 'firebase/app';
 import { 
   getAuth, onAuthStateChanged, signInAnonymously, signOut 
@@ -15,8 +15,8 @@ import {
   User as UserIcon, Play, Pause, Zap, Activity, AlertTriangle,
   LogIn, UserPlus, Fingerprint, ChevronRight, Sword, Medal,
   Calendar, Info, Target, DownloadCloud, ClipboardCheck,
-  FileBadge, Box, X, Save, Edit3, Settings, MapPin, Hash, Trash2, Scale,
-  CheckSquare, Square, XCircle, Award
+  FileBadge, Box, X, Save, Edit3, Settings, MapPin, Hash, Trash2, Award,
+  CheckSquare, Square, Scale, History, Plus, ChevronUp, ChevronDown
 } from 'lucide-react';
 
 // --- CONFIGURATION FIREBASE ARMAND (VERSION STABLE VALIDÉE) ---
@@ -30,7 +30,7 @@ const firebaseConfig = {
   measurementId: "G-Y4W98BNTHN"
 };
 
-// Initialisation sécurisée pour éviter les erreurs de duplication
+// Initialisation sécurisée
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -55,7 +55,7 @@ const getFFKMDACategory = (birthDate: any) => {
   return { age, cat };
 };
 
-// --- COMPOSANTS UI ---
+// --- COMPOSANTS UI CYBERPUNK ---
 
 const FuturisticCard = ({ children, className = '', title, borderColor = 'slate', onClick }: any) => {
   const borderColors: any = {
@@ -102,18 +102,18 @@ const App = () => {
   const [view, setView] = useState('home');
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  
-  // Collections States
+  const [error, setError] = useState<string | null>(null);
+
+  // States Collections
   const [members, setMembers] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [fights, setFights] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
   const [competitions, setCompetitions] = useState<any[]>([]);
-  
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+
   // UI States
   const [inputText, setInputText] = useState('');
-  const [selectedFight, setSelectedFight] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selectedCompId, setSelectedCompId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,22 +123,15 @@ const App = () => {
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Authentification (Strict Armand Base)
+  // 1. Authentification (REPRISE EXACTE DE VOTRE CODE STABLE)
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (e) {
-        console.error("Auth init error:", e);
-      }
+      try { await signInAnonymously(auth); } catch (e) { console.error("Auth init error:", e); }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (!u) {
-        setLoading(false);
-        setProfile(null);
-      }
+      if (!u) { setLoading(false); setProfile(null); }
     });
     return () => unsubscribe();
   }, []);
@@ -156,20 +149,18 @@ const App = () => {
         setProfile(null);
       }
       setLoading(false);
-    }, (err) => {
-      console.error("Sync Error:", err);
-      setLoading(false);
-    });
+    }, (err) => { console.error("Sync Error:", err); setLoading(false); });
 
     const unsubChat = onSnapshot(collection(db, ...path, 'messages'), (s) => {
       const msgs = s.docs.map(d => ({id: d.id, ...d.data()}));
       setMessages(msgs.sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0)));
     });
 
-    onSnapshot(collection(db, ...path, 'members'), (s) => setMembers(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    onSnapshot(collection(db, ...path, 'fights'), (s) => setFights(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    onSnapshot(collection(db, ...path, 'agenda'), (s) => setAgenda(s.docs.map(d => ({id: d.id, ...d.data()}))));
-    onSnapshot(collection(db, ...path, 'competitions'), (s) => {
+    onSnapshot(collection(db, ...path, 'members'), s => setMembers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+    onSnapshot(collection(db, ...path, 'fights'), s => setFights(s.docs.map(d => ({id: d.id, ...d.data()}))));
+    onSnapshot(collection(db, ...path, 'agenda'), s => setAgenda(s.docs.map(d => ({id: d.id, ...d.data()}))));
+    onSnapshot(collection(db, ...path, 'announcements'), s => setAnnouncements(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a: any, b: any) => b.timestamp - a.timestamp)));
+    onSnapshot(collection(db, ...path, 'competitions'), s => {
         const comps = s.docs.map(d => ({id: d.id, ...d.data()}));
         setCompetitions(comps.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         if (!selectedCompId && comps.length > 0) setSelectedCompId(comps[0].id);
@@ -178,24 +169,21 @@ const App = () => {
     return () => { unsubProfile(); unsubChat(); };
   }, [user, selectedCompId]);
 
-  // 3. Moteur Timer
+  // 3. Moteur Timer Pro
   useEffect(() => {
     let interval: any = null;
     if (isActive && seconds > 0) {
       interval = setInterval(() => setSeconds((s) => s - 1), 1000);
     } else if (isActive && seconds === 0) {
-      if (!isResting) {
-        setIsResting(true); setSeconds(60);
-      } else {
-        setIsResting(false); setSeconds(180); setCurrentRound((r) => r + 1);
-      }
+      if (!isResting) { setIsResting(true); setSeconds(60); }
+      else { setIsResting(false); setSeconds(180); setCurrentRound((r) => r + 1); }
     }
     return () => clearInterval(interval);
   }, [isActive, seconds, isResting]);
 
   useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
 
-  // --- ACTIONS (REPRISE STRICTE) ---
+  // --- ACTIONS AUTH (VOTRE BASE STABLE) ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -216,8 +204,7 @@ const App = () => {
           await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), { ...data, lastSeen: serverTimestamp() });
           if (existing.id !== user.uid) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', existing.id));
         } else {
-          setError("Profil introuvable. Vérifie ton prénom et n° de téléphone.");
-          setIsSubmitting(false);
+          setError("Profil introuvable."); setIsSubmitting(false);
         }
       } else {
         if (!ln) { setError("Le nom est requis."); setIsSubmitting(false); return; }
@@ -254,142 +241,106 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono p-10">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-6 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v42_Ready</p>
+      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v44_Fixed</p>
     </div>
   );
 
   const renderAuth = () => (
     <div className="p-8 space-y-8 animate-in fade-in pb-32 h-screen overflow-y-auto custom-scrollbar">
       <div className="flex flex-col items-center mt-12">
-        <div className="p-6 bg-cyan-500/10 rounded-[3rem] border border-cyan-500/20 mb-6 shadow-2xl relative group">
-          <div className="absolute inset-0 bg-cyan-500/5 blur-2xl rounded-full group-hover:bg-cyan-500/10 transition-all"></div>
+        <div className="p-6 bg-cyan-500/10 rounded-[3rem] border border-cyan-500/20 mb-6 shadow-2xl relative">
           <Fingerprint size={56} className="text-cyan-500 relative z-10" />
         </div>
         <h1 className="text-4xl font-black italic text-white uppercase leading-none text-center tracking-tighter">
-          {authMode === 'login' ? 'Accès Club' : 'Elite Boxe'}<br/>
-          <span className="text-cyan-500 text-xl font-bold not-italic tracking-[0.3em] uppercase">S.M.G BOXING</span>
+          {authMode === 'login' ? 'Connexion' : 'Inscription'}<br/>
+          <span className="text-cyan-500 text-xl font-bold not-italic tracking-[0.3em] uppercase">S.M.G Boxe</span>
         </h1>
       </div>
-
-      {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/40 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake">
-          <AlertTriangle size={18} /> {error}
-        </div>
-      )}
-
+      {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-3 text-rose-500 text-[11px] font-bold uppercase animate-shake"><AlertTriangle size={18} /> {error}</div>}
       <form onSubmit={handleAuth} className="space-y-4">
-        <div className="space-y-3">
-           <input name="fn" placeholder="Prénom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required disabled={isSubmitting} />
-           {authMode === 'register' && (
-             <>
-               <input name="ln" placeholder="Nom de famille" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required disabled={isSubmitting} />
-               <div className="space-y-1">
-                 <label className="text-[9px] text-slate-500 uppercase font-bold px-1 tracking-widest">Date de Naissance</label>
-                 <input name="bd" type="date" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-slate-400 outline-none focus:border-cyan-500" required disabled={isSubmitting} />
-               </div>
-             </>
-           )}
-           <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required disabled={isSubmitting} />
-        </div>
-        
-        <button 
-          type="submit" 
-          disabled={isSubmitting} 
-          className={`w-full p-5 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-6 ${isSubmitting ? 'bg-slate-800 opacity-50' : 'bg-cyan-600 shadow-cyan-900/40'}`}
-        >
+        <input name="fn" placeholder="Prénom" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500 transition-all placeholder:text-slate-600" required disabled={isSubmitting} />
+        {authMode === 'register' && (
+          <>
+            <input name="ln" placeholder="Nom de famille" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none focus:border-cyan-500" required />
+            <div className="space-y-1">
+               <label className="text-[9px] text-slate-500 uppercase font-bold px-1 tracking-widest">Date de naissance</label>
+               <input name="bd" type="date" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-slate-400 outline-none" required />
+            </div>
+          </>
+        )}
+        <input name="ph" placeholder="N° de Téléphone" type="tel" className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-sm text-white outline-none" required disabled={isSubmitting} />
+        <button type="submit" disabled={isSubmitting} className={`w-full p-5 rounded-2xl font-black text-white uppercase text-sm tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-6 ${isSubmitting ? 'bg-slate-800 opacity-50' : 'bg-cyan-600 shadow-cyan-900/40'}`}>
           {isSubmitting ? <Activity className="animate-spin" size={20} /> : (authMode === 'login' ? <LogIn size={20}/> : <UserPlus size={20}/>)}
-          {isSubmitting ? 'INITIALISATION...' : (authMode === 'login' ? 'Entrer dans l\'arène' : 'Générer Profil Elite')}
+          {isSubmitting ? 'CHRONOS_SYNC...' : (authMode === 'login' ? 'Entrer dans l\'arène' : 'Initialiser Profil')}
         </button>
       </form>
-
-      <button 
-        type="button"
-        onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} 
-        className="w-full text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors py-2"
-      >
+      <button type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setError(null); }} className="w-full text-[10px] text-slate-500 font-black uppercase tracking-widest hover:text-cyan-400 transition-colors py-2">
         {authMode === 'login' ? "Nouveau membre ? S'inscrire" : "Déjà membre ? Se connecter"}
       </button>
     </div>
   );
 
-  const renderHome = () => (
-    <div className="p-5 space-y-6 pb-28 animate-in fade-in">
-      <header className="flex justify-between items-start py-8 relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
-        <div>
-          <h1 className="text-4xl font-black text-white italic uppercase leading-none tracking-tighter">SMG <span className="text-cyan-500">Boxe</span></h1>
-          <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 tracking-widest font-bold">Coach {profile?.firstName} • BMF2 Master</p>
-        </div>
-        <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-          <Skull size={24} className="text-cyan-500" />
-        </div>
-      </header>
-
-      <div className="grid grid-cols-2 gap-4">
-        <FuturisticCard borderColor="cyan" onClick={() => setView('timer')} className="flex flex-col items-center gap-3 py-8 group active:scale-95 transition-all">
-          <TimerIcon size={36} className="text-cyan-500 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Training</span>
-        </FuturisticCard>
-        <FuturisticCard borderColor="rose" onClick={() => setView('chat')} className="flex flex-col items-center gap-3 py-8 group active:scale-95 transition-all">
-          <MessageSquare size={36} className="text-rose-500 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Club Chat</span>
-        </FuturisticCard>
-        <FuturisticCard borderColor="gold" onClick={() => setView('tournament')} className="flex flex-col items-center gap-4 py-8 col-span-2 group active:scale-95 transition-all">
-          <Trophy size={32} className="text-yellow-500" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest text-center px-4">Arène Elite & FFKMDA Data</span>
-        </FuturisticCard>
-      </div>
-
-      <section className="space-y-3">
-        <h3 className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] px-1">Accès Noyau</h3>
-        <button onClick={() => setView('roster')} className="w-full flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-cyan-500/50 transition-all active:scale-[0.98]">
-           <div className="flex items-center gap-3">
-             <Users size={18} className="text-slate-500 group-hover:text-cyan-400" />
-             <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">Athlètes SMG</span>
-           </div>
-           <ChevronRight size={14} className="text-slate-700" />
-        </button>
-        <button onClick={() => setView('calendar')} className="w-full flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-purple-500/50 transition-all active:scale-[0.98]">
-           <div className="flex items-center gap-3">
-             <Calendar size={18} className="text-purple-500 group-hover:text-purple-400" />
-             <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">Agenda Club</span>
-           </div>
-           <ChevronRight size={14} className="text-slate-700" />
-        </button>
-      </section>
-
-      <div className="flex items-center justify-between p-4 bg-blue-900/5 border border-blue-900/10 rounded-2xl opacity-30">
-        <div className="flex items-center gap-3"><Box size={16} className="text-blue-500" /><span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Renault Trucks Logistics</span></div>
-        <span className="text-[8px] text-blue-900 font-black">VÉNISSIEUX_HUB</span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
-      <div className="max-w-md mx-auto min-h-screen bg-slate-950 border-x border-slate-900/50 relative shadow-2xl overflow-hidden flex flex-col">
-        
+      <div className="max-w-md mx-auto min-h-screen bg-slate-950 border-x border-slate-900 relative shadow-2xl overflow-hidden flex flex-col">
         <main className="flex-1 overflow-y-auto custom-scrollbar">
           {!profile ? renderAuth() : (
             <div className="pb-32">
-              {view === 'home' && renderHome()}
-              
+              {view === 'home' && (
+                <div className="p-5 space-y-6 animate-in fade-in">
+                  <header className="flex justify-between items-start py-8 relative">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
+                    <div>
+                      <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">SMG <span className="text-cyan-500">Boxe</span></h1>
+                      <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 font-bold">Coach {profile?.firstName} • BMF2 Master</p>
+                    </div>
+                    <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl"><Skull size={24} className="text-cyan-500" /></div>
+                  </header>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FuturisticCard borderColor="cyan" onClick={() => setView('timer')} className="flex flex-col items-center gap-3 py-8 group active:scale-95 transition-all">
+                      <TimerIcon size={36} className="text-cyan-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Training</span>
+                    </FuturisticCard>
+                    <FuturisticCard borderColor="rose" onClick={() => setView('chat')} className="flex flex-col items-center gap-3 py-8 group active:scale-95 transition-all">
+                      <MessageSquare size={36} className="text-rose-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Club Chat</span>
+                    </FuturisticCard>
+                    <FuturisticCard borderColor="gold" onClick={() => setView('tournament')} className="flex flex-col items-center gap-4 py-8 col-span-2 group active:scale-95 transition-all">
+                      <Trophy size={32} className="text-yellow-500" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Arène Elite & FFKMDA</span>
+                    </FuturisticCard>
+                  </div>
+
+                  <section className="space-y-3">
+                    <h3 className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] px-1">Accès Noyau</h3>
+                    <button onClick={() => setView('roster')} className="w-full flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-cyan-500/50 transition-all active:scale-[0.98]">
+                       <div className="flex items-center gap-3"><Users size={18} className="text-slate-500 group-hover:text-cyan-400" /><span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">Athlètes SMG</span></div>
+                       <ChevronRight size={14} className="text-slate-700" />
+                    </button>
+                    <button onClick={() => setView('calendar')} className="w-full flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-purple-500/50 transition-all active:scale-[0.98]">
+                       <div className="flex items-center gap-3"><Calendar size={18} className="text-purple-500" /><span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">Agenda Club</span></div>
+                       <ChevronRight size={14} className="text-slate-700" />
+                    </button>
+                  </section>
+
+                  <div className="flex items-center justify-between p-4 bg-blue-900/5 border border-blue-900/10 rounded-2xl opacity-30">
+                    <div className="flex items-center gap-3"><Box size={16} className="text-blue-500" /><span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Renault Trucks Logistics</span></div>
+                    <span className="text-[8px] text-blue-900 font-black">VÉNISSIEUX_HUB</span>
+                  </div>
+                </div>
+              )}
+
               {view === 'tournament' && (
                   <TournamentModule 
-                    profile={profile} 
-                    members={members} 
-                    competitions={competitions} 
-                    fights={fights} 
-                    selectedCompId={selectedCompId}
-                    setSelectedCompId={setSelectedCompId}
-                    onNavigate={() => setView('home')}
-                    onScan={scanFFKMDA}
-                    isSyncing={isSubmitting}
+                    profile={profile} members={members} competitions={competitions} fights={fights} 
+                    selectedCompId={selectedCompId} setSelectedCompId={setSelectedCompId}
+                    onNavigate={() => setView('home')} isSyncing={isSubmitting}
                   />
               )}
 
               {view === 'timer' && (
-                <div className="p-6 h-full flex flex-col items-center justify-center animate-in slide-in-from-bottom-4 min-h-[85vh]">
+                <div className="p-6 h-full flex flex-col items-center justify-center animate-in slide-in-from-bottom-4 min-h-[80vh]">
                   <h2 className="text-3xl font-black italic text-white uppercase mb-8 tracking-tighter">Boxing <span className="text-rose-500">Timer</span></h2>
                   <div className={`w-72 h-72 rounded-full border-[15px] transition-all duration-700 flex flex-col items-center justify-center bg-slate-900/60 shadow-2xl relative ${isResting ? 'border-cyan-500 shadow-cyan-500/20' : 'border-slate-800 shadow-rose-500/20'}`}>
                     {isActive && <div className={`absolute inset-0 rounded-full border-2 animate-ping ${isResting ? 'border-cyan-500/20' : 'border-rose-500/20'}`}></div>}
@@ -397,9 +348,7 @@ const App = () => {
                     <div className={`text-xs font-black mt-3 uppercase tracking-widest ${isResting ? 'text-cyan-400' : 'text-rose-500'}`}>{isResting ? 'REPOS' : `Round ${currentRound}`}</div>
                   </div>
                   <div className="flex gap-4 w-full max-w-xs mt-12">
-                    <button onClick={() => setIsActive(!isActive)} className={`flex-1 p-5 rounded-3xl font-black uppercase text-sm shadow-xl active:scale-95 transition-all ${isActive ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-black'}`}>
-                      {isActive ? 'Pause' : 'Start'}
-                    </button>
+                    <button onClick={() => setIsActive(!isActive)} className={`flex-1 p-5 rounded-3xl font-black uppercase text-sm shadow-xl active:scale-95 transition-all ${isActive ? 'bg-slate-800 text-white border border-slate-700' : 'bg-white text-black'}`}>{isActive ? 'Pause' : 'Start'}</button>
                     <button onClick={() => { setIsActive(false); setSeconds(180); setCurrentRound(1); setIsResting(false); }} className="p-5 border border-slate-800 rounded-3xl text-slate-400 hover:text-white transition-all"><RotateCcw/></button>
                   </div>
                   <button onClick={() => setView('home')} className="text-slate-600 text-[10px] font-bold uppercase mt-12 flex items-center gap-2 hover:text-cyan-500 transition-colors"><ArrowLeft size={12}/> Retour</button>
@@ -408,33 +357,16 @@ const App = () => {
 
               {view === 'chat' && (
                 <div className="flex flex-col h-screen pb-20 bg-slate-950 animate-in slide-in-from-right-4">
-                  <div className="p-4 border-b border-slate-800 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-20 shadow-lg">
-                    <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-xl text-cyan-500"><ArrowLeft size={20}/></button>
-                    <div><h2 className="text-white font-bold text-sm leading-none">Club Chat</h2><span className="text-[9px] text-cyan-400 font-mono mt-1 block tracking-tighter">Sync Cloud Active</span></div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                    {messages.map((m: any) => (
-                      <div key={m.id} className={`flex ${m.uid === user.uid ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none shadow-lg shadow-cyan-900/20' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
-                          {m.uid !== user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase tracking-tighter">{m.sender}</div>}
-                          <div className="leading-relaxed">{m.text}</div>
-                          <div className="text-[8px] opacity-30 mt-1 text-right">{new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                        </div>
-                      </div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
-                  <form onSubmit={handleSendMessage} className="p-4 bg-slate-900 border-t border-slate-800 flex gap-2 sticky bottom-0">
-                    <input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2.5 text-white text-sm outline-none focus:border-cyan-500 transition-all" />
-                    <button type="submit" className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform"><Send size={18}/></button>
-                  </form>
+                  <div className="p-4 border-b border-slate-800 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-20 shadow-lg"><button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-xl text-cyan-500"><ArrowLeft size={20}/></button><div><h2 className="text-white font-bold text-sm leading-none">Club Chat</h2><span className="text-[9px] text-cyan-400 font-mono mt-1 block tracking-tighter">Sync Cloud Active</span></div></div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">{messages.map((m: any) => (<div key={m.id} className={`flex ${m.uid === user.uid ? 'justify-end' : 'justify-start'}`}><div className={`p-3 rounded-2xl text-sm max-w-[85%] ${m.uid === user.uid ? 'bg-cyan-600 text-white rounded-tr-none shadow-lg' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>{m.uid !== user.uid && <div className="text-[9px] text-cyan-500 mb-1 font-black uppercase tracking-tighter">{m.sender}</div>}<div className="leading-relaxed">{m.text}</div></div></div>))}<div ref={messagesEndRef} /></div>
+                  <form onSubmit={handleSendMessage} className="p-4 bg-slate-900 border-t border-slate-800 flex gap-2 sticky bottom-0"><input value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Message..." className="flex-1 bg-slate-950 border border-slate-800 rounded-full px-4 py-2.5 text-white text-sm outline-none focus:border-cyan-500 transition-all" /><button type="submit" className="bg-cyan-600 p-2.5 rounded-full text-white shadow-lg active:scale-90 transition-transform"><Send size={18}/></button></form>
                 </div>
               )}
 
               {view === 'calendar' && (
                 <div className="p-6 space-y-6 animate-in slide-in-from-bottom-4 pb-32">
                    <div className="flex items-center gap-3"><button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-purple-500 shadow-lg"><ArrowLeft size={18}/></button><h2 className="text-2xl font-black text-white italic uppercase leading-none tracking-tighter">Agenda <span className="text-purple-500">Club</span></h2></div>
-                   <div className="space-y-4 relative pl-4"><div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500/50 to-transparent"></div>{agenda.sort((a,b) => a.date - b.date).map(ev => (<div key={ev.id} className="relative pl-8"><div className="absolute left-0 top-0 w-6 h-6 rounded-full bg-slate-950 border border-purple-500 z-10 flex items-center justify-center text-[8px] font-black text-purple-400">{new Date(ev.date?.seconds * 1000).getDate()}</div><FuturisticCard title={new Date(ev.date?.seconds * 1000).toLocaleDateString()} borderColor="slate"><h3 className="text-sm font-bold text-white uppercase italic">{ev.title}</h3><p className="text-[10px] text-slate-500 mt-1 italic leading-relaxed">{ev.description}</p></FuturisticCard></div>))}</div>
+                   <div className="space-y-4 relative pl-4"><div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500/50 to-transparent"></div>{agenda.length > 0 ? agenda.sort((a,b) => a.date - b.date).map(ev => (<div key={ev.id} className="relative pl-8"><div className="absolute left-0 top-0 w-6 h-6 rounded-full bg-slate-950 border border-purple-500 z-10 flex items-center justify-center text-[8px] font-black text-purple-400">{new Date(ev.date?.seconds * 1000).getDate()}</div><FuturisticCard title={new Date(ev.date?.seconds * 1000).toLocaleDateString()} borderColor="slate"><h3 className="text-sm font-bold text-white uppercase italic">{ev.title}</h3><p className="text-[10px] text-slate-500 mt-1 italic leading-relaxed">{ev.description}</p></FuturisticCard></div>)) : <p className="text-center text-slate-700 uppercase font-black text-[9px] py-20 tracking-widest italic">Aucun événement planifié</p>}</div>
                 </div>
               )}
 
@@ -494,7 +426,7 @@ const App = () => {
   );
 };
 
-// --- MODULE COMPETITION COMPLET (INJECTÉ) ---
+// --- MODULE COMPETITION COMPLET (CORRIGÉ ET ADAPTÉ) ---
 
 const TournamentModule = ({ profile, members, competitions, fights, selectedCompId, setSelectedCompId, onNavigate, onScan, isSyncing }: any) => {
   const isStaff = profile.role === 'Admin' || profile.role === 'Coach';
@@ -511,7 +443,6 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
     const reverseIndex = fighterFights.length - 1 - index;
     if (reverseIndex === 0) return 'Finale';
     if (reverseIndex === 1) return 'Demi-finale';
-    if (reverseIndex === 2) return '1/4 de finale';
     return 'Éliminatoire';
   };
 
@@ -524,15 +455,14 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
     <div className="p-4 space-y-6 animate-in slide-in-from-right-4 pb-20">
       <div className="flex justify-between items-center">
         <button onClick={onNavigate} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-yellow-500 shadow-lg"><ArrowLeft size={18}/></button>
-        <div className="text-center">
-           <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Arena Elite</h2>
-           <div className="flex items-center justify-center gap-1.5"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div><span className="text-[8px] text-slate-500 font-mono uppercase tracking-[0.2em]">Live System</span></div>
-        </div>
-        <button onClick={onScan} disabled={isSyncing} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-500 active:scale-90"><DownloadCloud size={18} className={isSyncing ? 'animate-bounce' : ''} /></button>
+        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Arena Elite</h2>
+        <button onClick={onScan} disabled={isSyncing} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-500 active:scale-90 transition-all">
+          <DownloadCloud size={18} className={isSyncing ? 'animate-bounce' : ''} />
+        </button>
       </div>
 
       <select value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)} className="w-full bg-slate-900 text-xs text-cyan-400 font-bold p-4 rounded-2xl border border-slate-800 outline-none shadow-xl">
-        {competitions.length > 0 ? competitions.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({new Date(c.date).toLocaleDateString()})</option>) : <option>Aucun tournoi</option>}
+        {competitions.length > 0 ? competitions.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>) : <option>Aucun tournoi</option>}
       </select>
 
       <div className="flex space-x-1 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
@@ -543,7 +473,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       </div>
 
       {activeTab === 'PLANNING' && (
-        <FuturisticCard title="PROGRAMMER TOURNOI" borderColor="cyan">
+        <FuturisticCard title="NOUVEL ÉVÉNEMENT" borderColor="cyan">
            <form onSubmit={async (e: any) => {
               e.preventDefault();
               const f = new FormData(e.target);
@@ -552,13 +482,13 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
               });
               e.target.reset();
            }} className="space-y-4">
-              <input name="name" placeholder="Nom de l'événement..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
+              <input name="name" placeholder="Nom du tournoi..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-500" required />
               <div className="grid grid-cols-2 gap-2">
                  <input name="date" type="date" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
-                 <input name="discipline" placeholder="ex: Kick-Boxing" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
+                 <input name="discipline" placeholder="Kick-Boxing" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
               </div>
-              <input name="location" placeholder="Ville / Gymnase..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
-              <button type="submit" className="w-full bg-cyan-600 py-4 rounded-2xl text-[10px] font-black uppercase italic shadow-xl">Diffuser au club</button>
+              <input name="location" placeholder="Lieu..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
+              <button type="submit" className="w-full bg-cyan-600 py-4 rounded-2xl text-[10px] font-black uppercase italic shadow-xl">Publier au Club</button>
            </form>
         </FuturisticCard>
       )}
@@ -566,39 +496,20 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       {activeTab === 'GESTION' && (
         <div className="space-y-6">
            <FuturisticCard title="INSCRIPTIONS ET PESÉE" borderColor="cyan">
-              <div className="space-y-4">
-                 <div className="bg-slate-950 rounded-xl p-3 border border-slate-800">
-                    <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3 flex items-center gap-2"><Users size={12}/> Choisir les combattants</h4>
-                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                      {members.filter((m:any) => m.category === 'Compétiteur' || m.category === 'Loisir').map((m: any) => {
-                        const isReg = currentCompetition?.participants?.includes(m.id);
-                        return (
-                          <button key={m.id} onClick={async () => {
-                              const participants = currentCompetition.participants || [];
-                              const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
-                              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
-                          }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500 hover:bg-slate-800'}`}>
-                              <span>{m.firstName} {m.lastName}</span>
-                              {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                 </div>
-
-                 {currentCompetition?.participants?.length > 0 && (
-                   <div className="space-y-2 pt-2 border-t border-slate-800">
-                      <div className="flex justify-between items-end pb-1 px-1">
-                         <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Liste de pesée ({currentCompetition.participants.length})</span>
-                      </div>
-                      {members.filter((m: any) => currentCompetition.participants.includes(m.id)).map((m: any) => (
-                        <div key={m.id} className="flex justify-between items-center bg-slate-950/50 p-3 rounded-xl border border-slate-800">
-                           <span className="text-xs font-bold text-slate-200 uppercase">{m.firstName} {m.lastName}</span>
-                           <button onClick={() => setWeighInStatus(prev => ({...prev, [m.id]: !prev[m.id]}))} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${weighInStatus[m.id] ? 'bg-green-500/20 text-green-500 border border-green-500/40' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}><Scale size={12}/> {weighInStatus[m.id] ? 'Pesée OK' : 'Attente'}</button>
-                        </div>
-                      ))}
-                   </div>
-                 )}
+              <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                {members.filter((m:any) => m.category === 'Compétiteur' || m.category === 'Loisir').map((m: any) => {
+                  const isReg = currentCompetition?.participants?.includes(m.id);
+                  return (
+                    <button key={m.id} onClick={async () => {
+                        const participants = currentCompetition.participants || [];
+                        const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
+                    }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
+                        <span>{m.firstName} {m.lastName}</span>
+                        {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
+                    </button>
+                  );
+                })}
               </div>
            </FuturisticCard>
 
@@ -621,15 +532,11 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
                            <div className="flex justify-between items-center">
                               <div className="flex items-center gap-3">
                                  <div className="w-10 h-10 bg-slate-950 rounded-xl flex flex-col items-center justify-center border border-slate-800 shadow-inner">
-                                    <span className="text-[7px] text-slate-600 font-bold">#</span>
                                     <span className="text-lg font-black text-white">{f.fightNumber}</span>
                                  </div>
-                                 <div>
-                                    <div className="text-xs font-black text-white uppercase">{getAutoStage(m.id, f.id)}</div>
-                                    <div className={`text-[8px] font-bold uppercase ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>Aire {f.ring} • Coin {f.helmetColor}</div>
-                                 </div>
+                                 <div className="text-xs font-black text-white uppercase">{getAutoStage(m.id, f.id)}</div>
                               </div>
-                              {f.status === 'Finished' && <div className={`text-[10px] font-black italic uppercase ${f.resultat === 'Victoire' ? 'text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'text-rose-500'}`}>{f.resultat}</div>}
+                              {f.status === 'Finished' && <div className={`text-[10px] font-black italic uppercase ${f.resultat === 'Victoire' ? 'text-green-500' : 'text-rose-500'}`}>{f.resultat}</div>}
                            </div>
                         </FuturisticCard>
                       ))}
@@ -641,67 +548,48 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       )}
 
       {activeTab === 'TIMELINE' && (
-        <div className="space-y-10">
-           {[...new Set(liveFights.map((f:any) => f.ring))].sort((a:any, b:any) => a - b).map(ring => (
+        <div className="space-y-8">
+           {[...new Set(liveFights.map((f:any) => f.ring))].sort().map(ring => (
              <div key={ring} className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2 px-1">
-                   <div className="flex items-center gap-2"><MapPin size={16} className="text-cyan-500"/><h3 className="text-sm font-black text-white uppercase italic">Aire {ring}</h3></div>
-                   <span className="text-[9px] text-slate-600 font-mono uppercase tracking-tighter">{liveFights.filter((f:any) => f.ring === ring).length} Combats</span>
-                </div>
+                <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><MapPin size={14} className="text-cyan-500"/><h3 className="text-xs font-black text-white uppercase italic">Aire {ring}</h3></div>
                 <div className="space-y-4">
                    {liveFights.filter((f:any) => f.ring === ring).sort((a:any,b:any) => a.fightNumber - b.fightNumber).map((f: any) => (
                      <div key={f.id} onClick={() => isStaff && setSelectedFight(f)} className="relative flex items-center p-5 bg-slate-900 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl transition-all active:scale-98">
-                        <div className={`absolute left-0 top-0 w-1.5 h-full ${f.helmetColor === 'Rouge' ? 'bg-rose-600 shadow-[0_0_15px_rose]' : 'bg-cyan-500 shadow-[0_0_15px_cyan]'}`}></div>
+                        <div className={`absolute left-0 top-0 w-1.5 h-full ${f.helmetColor === 'Rouge' ? 'bg-rose-600' : 'bg-cyan-500'}`}></div>
                         <div className="w-14 h-14 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col items-center justify-center mr-4 shadow-inner">
-                           <span className="text-[8px] text-slate-500 font-black">N°</span>
                            <span className="text-xl font-black text-white">{f.fightNumber}</span>
                         </div>
                         <div className="flex-1">
                            <h4 className={`text-xl font-black italic tracking-tighter uppercase leading-none mb-1.5 ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>{f.fighterName}</h4>
-                           <div className="flex items-center gap-2">
-                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">{getAutoStage(f.fighterId, f.id)}</span>
-                             <span className={`text-[8px] px-1.5 py-0.5 rounded font-black border uppercase ${f.helmetColor === 'Rouge' ? 'border-rose-900 text-rose-600' : 'border-cyan-900 text-cyan-600'}`}>Coin {f.helmetColor}</span>
-                           </div>
+                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{getAutoStage(f.fighterId, f.id)}</span>
                         </div>
-                        {profile.id === f.fighterId && <div className="p-2 bg-cyan-500/10 rounded-xl animate-pulse border border-cyan-500/30"><Shield size={24} className="text-cyan-400" /></div>}
+                        {profile.id === f.fighterId && <div className="p-2 bg-cyan-500/10 rounded-xl animate-pulse"><Shield size={24} className="text-cyan-400" /></div>}
                      </div>
                    ))}
                 </div>
              </div>
            ))}
-           {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-24 opacity-30 animate-pulse"><Trophy size={64} className="mb-4 text-slate-700" /><p className="font-black italic uppercase tracking-widest text-slate-700">Arena Vide</p></div>}
+           {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-24 opacity-30"><Trophy size={64} className="mb-4" /><p className="font-black italic uppercase tracking-widest text-slate-700">Arène vide</p></div>}
         </div>
       )}
 
       {activeTab === 'PALMARES' && (
-        <div className="space-y-6">
-           <div className="flex items-center gap-3 px-1 mb-2">
-              <Award className="text-yellow-500" size={20}/>
-              <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Tableau des Médailles</h3>
-           </div>
+        <div className="space-y-4">
            {members.map((m: any) => {
-               const fighterFights = fights.filter((f:any) => f.fighterId === m.id);
-               const wins = fighterFights.filter((f:any) => f.resultat === 'Victoire').length;
+               const wins = fights.filter((f:any) => f.fighterId === m.id && f.resultat === 'Victoire').length;
                if (wins === 0 && m.role !== 'Admin') return null;
-               
-               // Calcul médailles
-               const gold = fighterFights.filter(f => f.resultat === 'Victoire' && getAutoStage(m.id, f.id) === 'Finale').length;
-               
                return (
-                 <FuturisticCard key={m.id} title="ATHLÈTE SMG" borderColor={gold > 0 ? 'gold' : 'slate'} className="bg-slate-950/40">
+                 <FuturisticCard key={m.id} title="ELITE PROFILE" borderColor={wins > 0 ? 'gold' : 'slate'} className="bg-slate-950/40">
                     <div className="flex justify-between items-center">
-                       <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center text-cyan-500 font-black italic border border-slate-700 shadow-xl">{m.firstName?.charAt(0)}</div>
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-500 font-black italic border border-slate-700 shadow-xl">{m.firstName?.charAt(0)}</div>
                           <div>
-                             <div className="text-sm font-black text-white uppercase tracking-tight italic">{m.firstName} {m.lastName}</div>
-                             <div className="flex gap-2 mt-1">
-                                <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/30 px-1.5 py-0.5 rounded text-[8px] font-black text-yellow-500 uppercase"><Medal size={10}/> {gold} Or</div>
-                                <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/30 px-1.5 py-0.5 rounded text-[8px] font-black text-green-400 uppercase"><Check size={10}/> {wins} Win</div>
-                             </div>
+                             <div className="text-sm font-bold text-white uppercase tracking-tighter italic">{m.firstName} {m.lastName}</div>
+                             <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Victoires Nationales</div>
                           </div>
                        </div>
                        <div className="text-right flex flex-col items-end">
-                          <span className="text-[10px] text-slate-500 font-black uppercase">Total</span>
+                          <Medal size={20} className="text-yellow-500 mb-1 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]"/>
                           <span className="text-2xl font-black text-white leading-none italic">{wins}</span>
                        </div>
                     </div>
@@ -712,58 +600,59 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       )}
 
       {/* MODAL CONTRÔLE SHOGUN */}
-      <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Contrôle Shogun Match">
+      <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Contrôle Match">
          <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><MapPin size={10}/> Aire de combat</label>
-                  <input defaultValue={selectedFight?.ring} id="m_ring" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner font-mono text-center" />
+                  <label className="text-[10px] text-slate-500 font-black uppercase">Aire</label>
+                  <input defaultValue={selectedFight?.ring} id="m_ring" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white outline-none focus:border-yellow-500 shadow-inner" />
                </div>
                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><Hash size={10}/> Passage N°</label>
-                  <input defaultValue={selectedFight?.fightNumber} id="m_num" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner font-mono text-center" />
+                  <label className="text-[10px] text-slate-500 font-black uppercase">N° Combat</label>
+                  <input defaultValue={selectedFight?.fightNumber} id="m_num" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner" />
                </div>
             </div>
-            
             <div className="space-y-3">
-               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest text-center block">Coin Attribué</label>
+               <label className="text-[10px] text-slate-500 font-black uppercase text-center block">Saisir Résultat Officiel</label>
                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Rouge' })} className={`p-4 rounded-2xl font-black text-[11px] uppercase border transition-all ${selectedFight?.helmetColor === 'Rouge' ? 'bg-rose-600 text-white border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Rouge</button>
-                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Bleu' })} className={`p-4 rounded-2xl font-black text-[11px] uppercase border transition-all ${selectedFight?.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Bleu</button>
+                  <button onClick={async () => {
+                      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), { resultat: 'Victoire', status: 'Finished' });
+                      setSelectedFight(null);
+                  }} className="p-4 bg-green-900/20 border border-green-500/30 rounded-2xl text-green-500 font-black text-[12px] uppercase italic active:scale-95 transition-all">Victoire</button>
+                  <button onClick={async () => {
+                      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), { resultat: 'Défaite', status: 'Finished' });
+                      setSelectedFight(null);
+                  }} className="p-4 bg-rose-900/20 border border-rose-500/30 rounded-2xl text-rose-500 font-black text-[12px] uppercase italic active:scale-95 transition-all">Défaite</button>
                </div>
             </div>
-
-            <div className="space-y-3 pt-4 border-t border-slate-800">
-               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest text-center block">Saisir Résultat Officiel</label>
-               <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Victoire', status: 'Finished' })} className="p-4 bg-green-900/20 border border-green-500/30 rounded-2xl text-green-500 font-black text-[12px] uppercase italic shadow-lg active:scale-95 transition-all">Victoire</button>
-                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Défaite', status: 'Finished' })} className="p-4 bg-rose-900/20 border border-rose-500/30 rounded-2xl text-rose-500 font-black text-[12px] uppercase italic shadow-lg active:scale-95 transition-all">Défaite</button>
-               </div>
-            </div>
-
             <button 
                onClick={async () => {
                   const updates = { 
                     ring: (document.getElementById('m_ring') as any).value, 
                     fightNumber: (document.getElementById('m_num') as any).value 
                   };
-                  await updateFight(selectedFight.id, updates);
+                  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id), updates);
+                  setSelectedFight(null);
                }} 
-               className="w-full p-5 bg-yellow-600 rounded-3xl font-black uppercase text-white text-xs shadow-xl shadow-yellow-900/30 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
+               className="w-full p-5 bg-yellow-600 rounded-3xl font-black uppercase text-white text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
             >
                <Save size={20}/> Valider Modifications
             </button>
-            
-            <button onClick={async () => { if(confirm('Détruire cette fiche ?')) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id)); setSelectedFight(null); } }} className="w-full py-2 text-rose-600 text-[10px] font-black uppercase flex items-center justify-center gap-1 opacity-50 hover:opacity-100 transition-all mt-4"><Trash2 size={12}/> Détruire Fiche de Match</button>
          </div>
       </Modal>
     </div>
   );
 };
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  ReactDOM.createRoot(rootElement).render(<React.StrictMode><App /></React.StrictMode>);
+// --- MONTAGE FINAL SÉCURISÉ ---
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
 
 export default App;
