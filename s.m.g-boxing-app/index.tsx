@@ -15,33 +15,26 @@ import {
   User as UserIcon, Play, Pause, Zap, Activity, AlertTriangle,
   LogIn, UserPlus, Fingerprint, ChevronRight, Sword, Medal,
   Calendar, Info, Target, DownloadCloud, ClipboardCheck,
-  FileBadge, Box, X, Save, Edit3, Settings, MapPin, Hash, Trash2, History, Scale,
-  CheckSquare, Square, XCircle, Award, ChevronUp, ChevronDown
+  FileBadge, Box, X, Save, Edit3, Settings, MapPin, Hash, Trash2, Scale,
+  CheckSquare, Square, XCircle, Award
 } from 'lucide-react';
 
-// --- CONFIGURATION FIREBASE SÉCURISÉE (HYBRIDE) ---
-const getFirebaseConfig = () => {
-  // Détection de l'environnement Canvas (Preview)
-  if (typeof __firebase_config !== 'undefined') {
-    return JSON.parse(__firebase_config);
-  }
-  // Configuration Armand pour Vercel / iPhone / Local
-  return {
-    apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
-    authDomain: "smg-boxing-club.firebaseapp.com",
-    projectId: "smg-boxing-club",
-    storageBucket: "smg-boxing-club.firebasestorage.app",
-    messagingSenderId: "680615984001",
-    appId: "1:680615984001:web:9147a52aa9e602fd694680",
-    measurementId: "G-Y4W98BNTHN"
-  };
+// --- CONFIGURATION FIREBASE ARMAND (VERSION STABLE VALIDÉE) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBn56Ylv05xEJtStcmqb2CpjPr1IoqxQLY",
+  authDomain: "smg-boxing-club.firebaseapp.com",
+  projectId: "smg-boxing-club",
+  storageBucket: "smg-boxing-club.firebasestorage.app",
+  messagingSenderId: "680615984001",
+  appId: "1:680615984001:web:9147a52aa9e602fd694680",
+  measurementId: "G-Y4W98BNTHN"
 };
 
-const firebaseConfig = getFirebaseConfig();
+// Initialisation sécurisée pour éviter les erreurs de duplication
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'smg-boxing-club';
+const appId = 'smg-boxing-club';
 
 // URL de ton Google Apps Script (Shogun Engine V81)
 const SHOGUN_API_URL = "https://script.google.com/macros/s/AKfycbz.../exec";
@@ -62,7 +55,7 @@ const getFFKMDACategory = (birthDate: any) => {
   return { age, cat };
 };
 
-// --- COMPOSANTS UI CYBERPUNK ---
+// --- COMPOSANTS UI ---
 
 const FuturisticCard = ({ children, className = '', title, borderColor = 'slate', onClick }: any) => {
   const borderColors: any = {
@@ -130,14 +123,13 @@ const App = () => {
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Authentification Robuste
+  // 1. Authentification (Strict Armand Base)
   useEffect(() => {
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);
-      } catch (e: any) {
-        console.error("Auth init error:", e.message);
-        setError("Erreur Init : " + e.message);
+      } catch (e) {
+        console.error("Auth init error:", e);
       }
     };
     initAuth();
@@ -203,7 +195,7 @@ const App = () => {
 
   useEffect(() => { if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, view]);
 
-  // --- ACTIONS ---
+  // --- ACTIONS (REPRISE STRICTE) ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -262,7 +254,7 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono p-10">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-6 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v41_Active</p>
+      <p className="text-cyan-800 text-[10px] mt-4 animate-bounce uppercase tracking-[0.3em]">Kernel_v42_Ready</p>
     </div>
   );
 
@@ -325,7 +317,7 @@ const App = () => {
       <header className="flex justify-between items-start py-8 relative">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-cyan-500/5 blur-[80px] rounded-full"></div>
         <div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none tracking-tighter">SMG <span className="text-cyan-500">Boxe</span></h1>
+          <h1 className="text-4xl font-black text-white italic uppercase leading-none tracking-tighter">SMG <span className="text-cyan-500">Boxe</span></h1>
           <p className="text-[10px] text-slate-500 tracking-[0.5em] uppercase font-mono mt-2 tracking-widest font-bold">Coach {profile?.firstName} • BMF2 Master</p>
         </div>
         <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
@@ -508,6 +500,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
   const isStaff = profile.role === 'Admin' || profile.role === 'Coach';
   const [activeTab, setActiveTab] = useState<'GESTION' | 'TIMELINE' | 'PALMARES' | 'PLANNING'>(isStaff ? 'GESTION' : 'TIMELINE');
   const [selectedFight, setSelectedFight] = useState<any>(null);
+  const [weighInStatus, setWeighInStatus] = useState<Record<string, boolean>>({});
   
   const currentCompetition = competitions.find((c: any) => c.id === selectedCompId);
   const liveFights = fights.filter((f: any) => f.competitionId === selectedCompId && f.status !== 'Finished');
@@ -518,6 +511,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
     const reverseIndex = fighterFights.length - 1 - index;
     if (reverseIndex === 0) return 'Finale';
     if (reverseIndex === 1) return 'Demi-finale';
+    if (reverseIndex === 2) return '1/4 de finale';
     return 'Éliminatoire';
   };
 
@@ -527,15 +521,18 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
   };
 
   return (
-    <div className="p-4 space-y-6 animate-in slide-in-from-right-4">
+    <div className="p-4 space-y-6 animate-in slide-in-from-right-4 pb-20">
       <div className="flex justify-between items-center">
         <button onClick={onNavigate} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-yellow-500 shadow-lg"><ArrowLeft size={18}/></button>
-        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Arena Elite</h2>
+        <div className="text-center">
+           <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Arena Elite</h2>
+           <div className="flex items-center justify-center gap-1.5"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div><span className="text-[8px] text-slate-500 font-mono uppercase tracking-[0.2em]">Live System</span></div>
+        </div>
         <button onClick={onScan} disabled={isSyncing} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-cyan-500 active:scale-90"><DownloadCloud size={18} className={isSyncing ? 'animate-bounce' : ''} /></button>
       </div>
 
       <select value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)} className="w-full bg-slate-900 text-xs text-cyan-400 font-bold p-4 rounded-2xl border border-slate-800 outline-none shadow-xl">
-        {competitions.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({new Date(c.date).toLocaleDateString()})</option>)}
+        {competitions.length > 0 ? competitions.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({new Date(c.date).toLocaleDateString()})</option>) : <option>Aucun tournoi</option>}
       </select>
 
       <div className="flex space-x-1 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
@@ -546,7 +543,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       </div>
 
       {activeTab === 'PLANNING' && (
-        <FuturisticCard title="NOUVEL ÉVÉNEMENT" borderColor="cyan">
+        <FuturisticCard title="PROGRAMMER TOURNOI" borderColor="cyan">
            <form onSubmit={async (e: any) => {
               e.preventDefault();
               const f = new FormData(e.target);
@@ -555,39 +552,58 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
               });
               e.target.reset();
            }} className="space-y-4">
-              <input name="name" placeholder="Nom du tournoi..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
+              <input name="name" placeholder="Nom de l'événement..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
               <div className="grid grid-cols-2 gap-2">
                  <input name="date" type="date" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" required />
-                 <input name="discipline" placeholder="Discipline..." className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
+                 <input name="discipline" placeholder="ex: Kick-Boxing" className="bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
               </div>
               <input name="location" placeholder="Ville / Gymnase..." className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white" />
-              <button type="submit" className="w-full bg-cyan-600 py-4 rounded-2xl text-[10px] font-black uppercase italic shadow-xl">Publier au Club</button>
+              <button type="submit" className="w-full bg-cyan-600 py-4 rounded-2xl text-[10px] font-black uppercase italic shadow-xl">Diffuser au club</button>
            </form>
         </FuturisticCard>
       )}
 
       {activeTab === 'GESTION' && (
         <div className="space-y-6">
-           <FuturisticCard title="INSCRIRE DES MEMBRES" borderColor="cyan">
-              <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                {members.filter((m:any) => m.category === 'Compétiteur' || m.category === 'Loisir').map((m: any) => {
-                  const isReg = currentCompetition?.participants?.includes(m.id);
-                  return (
-                    <button key={m.id} onClick={async () => {
-                        const participants = currentCompetition.participants || [];
-                        const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
-                    }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
-                        <span>{m.firstName} {m.lastName}</span>
-                        {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
-                    </button>
-                  );
-                })}
+           <FuturisticCard title="INSCRIPTIONS ET PESÉE" borderColor="cyan">
+              <div className="space-y-4">
+                 <div className="bg-slate-950 rounded-xl p-3 border border-slate-800">
+                    <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3 flex items-center gap-2"><Users size={12}/> Choisir les combattants</h4>
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {members.filter((m:any) => m.category === 'Compétiteur' || m.category === 'Loisir').map((m: any) => {
+                        const isReg = currentCompetition?.participants?.includes(m.id);
+                        return (
+                          <button key={m.id} onClick={async () => {
+                              const participants = currentCompetition.participants || [];
+                              const newParticipants = participants.includes(m.id) ? participants.filter((id: string) => id !== m.id) : [...participants, m.id];
+                              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'competitions', selectedCompId), { participants: newParticipants });
+                          }} className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold transition-all ${isReg ? 'bg-cyan-900/20 border border-cyan-500/30 text-white' : 'bg-slate-900 border border-slate-800 text-slate-500 hover:bg-slate-800'}`}>
+                              <span>{m.firstName} {m.lastName}</span>
+                              {isReg ? <CheckSquare size={16} className="text-cyan-400" /> : <Square size={16} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                 </div>
+
+                 {currentCompetition?.participants?.length > 0 && (
+                   <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="flex justify-between items-end pb-1 px-1">
+                         <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Liste de pesée ({currentCompetition.participants.length})</span>
+                      </div>
+                      {members.filter((m: any) => currentCompetition.participants.includes(m.id)).map((m: any) => (
+                        <div key={m.id} className="flex justify-between items-center bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+                           <span className="text-xs font-bold text-slate-200 uppercase">{m.firstName} {m.lastName}</span>
+                           <button onClick={() => setWeighInStatus(prev => ({...prev, [m.id]: !prev[m.id]}))} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${weighInStatus[m.id] ? 'bg-green-500/20 text-green-500 border border-green-500/40' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}><Scale size={12}/> {weighInStatus[m.id] ? 'Pesée OK' : 'Attente'}</button>
+                        </div>
+                      ))}
+                   </div>
+                 )}
               </div>
            </FuturisticCard>
 
            <div className="space-y-4">
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Gestion des Fiches</h3>
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Gestion des Fiches de Match</h3>
               {members.filter((m: any) => currentCompetition?.participants?.includes(m.id)).map((m: any) => (
                 <div key={m.id} className="space-y-2">
                    <div className="flex justify-between items-center border-b border-slate-800 pb-2 px-1">
@@ -613,7 +629,7 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
                                     <div className={`text-[8px] font-bold uppercase ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>Aire {f.ring} • Coin {f.helmetColor}</div>
                                  </div>
                               </div>
-                              {f.status === 'Finished' && <div className={`text-[10px] font-black italic uppercase ${f.resultat === 'Victoire' ? 'text-green-500' : 'text-rose-500'}`}>{f.resultat}</div>}
+                              {f.status === 'Finished' && <div className={`text-[10px] font-black italic uppercase ${f.resultat === 'Victoire' ? 'text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'text-rose-500'}`}>{f.resultat}</div>}
                            </div>
                         </FuturisticCard>
                       ))}
@@ -625,49 +641,67 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       )}
 
       {activeTab === 'TIMELINE' && (
-        <div className="space-y-8">
-           {[...new Set(liveFights.map((f:any) => f.ring))].sort().map(ring => (
+        <div className="space-y-10">
+           {[...new Set(liveFights.map((f:any) => f.ring))].sort((a:any, b:any) => a - b).map(ring => (
              <div key={ring} className="space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-800 pb-2"><MapPin size={14} className="text-cyan-500"/><h3 className="text-xs font-black text-white uppercase italic">Aire {ring}</h3></div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 px-1">
+                   <div className="flex items-center gap-2"><MapPin size={16} className="text-cyan-500"/><h3 className="text-sm font-black text-white uppercase italic">Aire {ring}</h3></div>
+                   <span className="text-[9px] text-slate-600 font-mono uppercase tracking-tighter">{liveFights.filter((f:any) => f.ring === ring).length} Combats</span>
+                </div>
                 <div className="space-y-4">
                    {liveFights.filter((f:any) => f.ring === ring).sort((a:any,b:any) => a.fightNumber - b.fightNumber).map((f: any) => (
-                     <div key={f.id} onClick={() => isStaff && setSelectedFight(f)} className="relative flex items-center p-4 bg-slate-900 rounded-[2rem] border border-slate-800 overflow-hidden shadow-2xl transition-all active:scale-98">
-                        <div className={`absolute left-0 top-0 w-1.5 h-full ${f.helmetColor === 'Rouge' ? 'bg-rose-600' : 'bg-cyan-500'}`}></div>
+                     <div key={f.id} onClick={() => isStaff && setSelectedFight(f)} className="relative flex items-center p-5 bg-slate-900 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl transition-all active:scale-98">
+                        <div className={`absolute left-0 top-0 w-1.5 h-full ${f.helmetColor === 'Rouge' ? 'bg-rose-600 shadow-[0_0_15px_rose]' : 'bg-cyan-500 shadow-[0_0_15px_cyan]'}`}></div>
                         <div className="w-14 h-14 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col items-center justify-center mr-4 shadow-inner">
                            <span className="text-[8px] text-slate-500 font-black">N°</span>
                            <span className="text-xl font-black text-white">{f.fightNumber}</span>
                         </div>
                         <div className="flex-1">
-                           <h4 className={`text-xl font-black italic tracking-tighter uppercase leading-none mb-1 ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>{f.fighterName}</h4>
-                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{getAutoStage(f.fighterId, f.id)}</span>
+                           <h4 className={`text-xl font-black italic tracking-tighter uppercase leading-none mb-1.5 ${f.helmetColor === 'Rouge' ? 'text-rose-500' : 'text-cyan-400'}`}>{f.fighterName}</h4>
+                           <div className="flex items-center gap-2">
+                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">{getAutoStage(f.fighterId, f.id)}</span>
+                             <span className={`text-[8px] px-1.5 py-0.5 rounded font-black border uppercase ${f.helmetColor === 'Rouge' ? 'border-rose-900 text-rose-600' : 'border-cyan-900 text-cyan-600'}`}>Coin {f.helmetColor}</span>
+                           </div>
                         </div>
-                        {profile.id === f.fighterId && <div className="p-2 bg-cyan-500/10 rounded-xl animate-pulse border border-cyan-500/30"><Shield size={22} className="text-cyan-400" /></div>}
+                        {profile.id === f.fighterId && <div className="p-2 bg-cyan-500/10 rounded-xl animate-pulse border border-cyan-500/30"><Shield size={24} className="text-cyan-400" /></div>}
                      </div>
                    ))}
                 </div>
              </div>
            ))}
-           {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-24 opacity-30"><Skull size={64} className="mb-4 text-slate-600" /><p className="font-black italic uppercase tracking-widest text-slate-600">Arène vide</p></div>}
+           {liveFights.length === 0 && <div className="flex flex-col items-center justify-center py-24 opacity-30 animate-pulse"><Trophy size={64} className="mb-4 text-slate-700" /><p className="font-black italic uppercase tracking-widest text-slate-700">Arena Vide</p></div>}
         </div>
       )}
 
       {activeTab === 'PALMARES' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+           <div className="flex items-center gap-3 px-1 mb-2">
+              <Award className="text-yellow-500" size={20}/>
+              <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Tableau des Médailles</h3>
+           </div>
            {members.map((m: any) => {
-               const wins = fights.filter((f:any) => f.fighterId === m.id && f.resultat === 'Victoire').length;
+               const fighterFights = fights.filter((f:any) => f.fighterId === m.id);
+               const wins = fighterFights.filter((f:any) => f.resultat === 'Victoire').length;
                if (wins === 0 && m.role !== 'Admin') return null;
+               
+               // Calcul médailles
+               const gold = fighterFights.filter(f => f.resultat === 'Victoire' && getAutoStage(m.id, f.id) === 'Finale').length;
+               
                return (
-                 <FuturisticCard key={m.id} title="ATHLÈTE ELITE" borderColor={wins > 0 ? 'gold' : 'slate'} className="bg-slate-950/40">
+                 <FuturisticCard key={m.id} title="ATHLÈTE SMG" borderColor={gold > 0 ? 'gold' : 'slate'} className="bg-slate-950/40">
                     <div className="flex justify-between items-center">
-                       <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-2xl bg-slate-800 flex items-center justify-center text-cyan-500 font-black italic border border-slate-700 shadow-xl">{m.firstName?.charAt(0)}</div>
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center text-cyan-500 font-black italic border border-slate-700 shadow-xl">{m.firstName?.charAt(0)}</div>
                           <div>
                              <div className="text-sm font-black text-white uppercase tracking-tight italic">{m.firstName} {m.lastName}</div>
-                             <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Compétitions Nationales</div>
+                             <div className="flex gap-2 mt-1">
+                                <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/30 px-1.5 py-0.5 rounded text-[8px] font-black text-yellow-500 uppercase"><Medal size={10}/> {gold} Or</div>
+                                <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/30 px-1.5 py-0.5 rounded text-[8px] font-black text-green-400 uppercase"><Check size={10}/> {wins} Win</div>
+                             </div>
                           </div>
                        </div>
                        <div className="text-right flex flex-col items-end">
-                          <Medal size={20} className="text-yellow-500 mb-1 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]"/>
+                          <span className="text-[10px] text-slate-500 font-black uppercase">Total</span>
                           <span className="text-2xl font-black text-white leading-none italic">{wins}</span>
                        </div>
                     </div>
@@ -678,32 +712,32 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
       )}
 
       {/* MODAL CONTRÔLE SHOGUN */}
-      <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Contrôle Shogun">
+      <Modal isOpen={!!selectedFight} onClose={() => setSelectedFight(null)} title="Contrôle Shogun Match">
          <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><MapPin size={10}/> Aire</label>
-                  <input defaultValue={selectedFight?.ring} id="m_ring" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl text-white outline-none focus:border-yellow-500 shadow-inner" />
+                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><MapPin size={10}/> Aire de combat</label>
+                  <input defaultValue={selectedFight?.ring} id="m_ring" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner font-mono text-center" />
                </div>
                <div className="space-y-1">
-                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><Hash size={10}/> Combat N°</label>
-                  <input defaultValue={selectedFight?.fightNumber} id="m_num" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl text-white outline-none focus:border-yellow-500 shadow-inner" />
+                  <label className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1"><Hash size={10}/> Passage N°</label>
+                  <input defaultValue={selectedFight?.fightNumber} id="m_num" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white outline-none focus:border-yellow-500 shadow-inner font-mono text-center" />
                </div>
             </div>
             
             <div className="space-y-3">
-               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest">Coin Combat</label>
-               <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Rouge' })} className={`p-3 rounded-xl font-black text-[10px] uppercase border transition-all ${selectedFight?.helmetColor === 'Rouge' ? 'bg-rose-600 text-white border-rose-500' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Rouge</button>
-                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Bleu' })} className={`p-3 rounded-xl font-black text-[10px] uppercase border transition-all ${selectedFight?.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Bleu</button>
+               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest text-center block">Coin Attribué</label>
+               <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Rouge' })} className={`p-4 rounded-2xl font-black text-[11px] uppercase border transition-all ${selectedFight?.helmetColor === 'Rouge' ? 'bg-rose-600 text-white border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Rouge</button>
+                  <button onClick={() => updateFight(selectedFight.id, { helmetColor: 'Bleu' })} className={`p-4 rounded-2xl font-black text-[11px] uppercase border transition-all ${selectedFight?.helmetColor === 'Bleu' ? 'bg-cyan-600 text-white border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Bleu</button>
                </div>
             </div>
 
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest">Action Rapide Résultat</label>
-               <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Victoire', status: 'Finished' })} className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl text-green-500 font-black text-[11px] uppercase italic shadow-lg active:scale-95 transition-all">Victoire</button>
-                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Défaite', status: 'Finished' })} className="p-4 bg-rose-900/20 border border-rose-500/30 rounded-xl text-rose-500 font-black text-[11px] uppercase italic shadow-lg active:scale-95 transition-all">Défaite</button>
+            <div className="space-y-3 pt-4 border-t border-slate-800">
+               <label className="text-[10px] text-slate-500 font-black uppercase px-1 tracking-widest text-center block">Saisir Résultat Officiel</label>
+               <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Victoire', status: 'Finished' })} className="p-4 bg-green-900/20 border border-green-500/30 rounded-2xl text-green-500 font-black text-[12px] uppercase italic shadow-lg active:scale-95 transition-all">Victoire</button>
+                  <button onClick={() => updateFight(selectedFight.id, { resultat: 'Défaite', status: 'Finished' })} className="p-4 bg-rose-900/20 border border-rose-500/30 rounded-2xl text-rose-500 font-black text-[12px] uppercase italic shadow-lg active:scale-95 transition-all">Défaite</button>
                </div>
             </div>
 
@@ -715,12 +749,12 @@ const TournamentModule = ({ profile, members, competitions, fights, selectedComp
                   };
                   await updateFight(selectedFight.id, updates);
                }} 
-               className="w-full p-5 bg-yellow-600 rounded-2xl font-black uppercase text-white text-xs shadow-xl shadow-yellow-900/30 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
+               className="w-full p-5 bg-yellow-600 rounded-3xl font-black uppercase text-white text-xs shadow-xl shadow-yellow-900/30 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
             >
-               <Save size={20}/> Sauvegarder Modifs
+               <Save size={20}/> Valider Modifications
             </button>
             
-            <button onClick={async () => { if(confirm('Détruire cette fiche ?')) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id)); setSelectedFight(null); } }} className="w-full py-2 text-rose-500 text-[9px] font-black uppercase flex items-center justify-center gap-1 opacity-40 hover:opacity-100 transition-opacity"><Trash2 size={12}/> Détruire Fiche de Combat</button>
+            <button onClick={async () => { if(confirm('Détruire cette fiche ?')) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fights', selectedFight.id)); setSelectedFight(null); } }} className="w-full py-2 text-rose-600 text-[10px] font-black uppercase flex items-center justify-center gap-1 opacity-50 hover:opacity-100 transition-all mt-4"><Trash2 size={12}/> Détruire Fiche de Match</button>
          </div>
       </Modal>
     </div>
