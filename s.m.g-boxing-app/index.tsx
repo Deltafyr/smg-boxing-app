@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
@@ -115,7 +116,7 @@ const App = () => {
   const [isResting, setIsResting] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
 
-  // 1. Authentification (Strict Armand Logic)
+  // 1. Authentification (Reprise stricte de ton code stable)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -191,7 +192,7 @@ const App = () => {
     if(view === 'chat') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages, view]);
 
-  // --- ACTIONS ---
+  // --- ACTIONS (REPRISE DU CODE STABLE ARMAND) ---
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -211,6 +212,7 @@ const App = () => {
 
     try {
       if (authMode === 'login') {
+        // Logique de scan pour reconnexion automatique
         const q = collection(db, 'artifacts', appId, 'public', 'data', 'members');
         const snap = await getDocs(q);
         const existing = snap.docs.find(d => 
@@ -232,6 +234,7 @@ const App = () => {
           setIsSubmitting(false);
         }
       } else {
+        // Inscription avec structure Elite Google Studio
         if (!ln) { setError("Le nom de famille est requis."); setIsSubmitting(false); return; }
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), {
           firstName: fn, lastName: ln, phone: ph, role: 'member', category: 'Compétiteur',
@@ -245,6 +248,14 @@ const App = () => {
       setError("Erreur réseau Cloud. Vérifie ta connexion.");
       setIsSubmitting(false);
     }
+  };
+
+  const scanFFKMDA = async () => {
+    setIsSubmitting(true);
+    try {
+      await fetch(`${SHOGUN_API_URL}?action=AUTO_SCAN_PLANNING`);
+    } catch (e) { console.error(e); }
+    setIsSubmitting(false);
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -271,7 +282,7 @@ const App = () => {
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center font-mono">
       <Skull size={64} className="text-cyan-500 animate-pulse mb-4 shadow-[0_0_50px_rgba(6,182,212,0.3)]" />
       <h1 className="text-white font-black text-xl tracking-widest uppercase text-center leading-relaxed">SMG CORE INITIALIZED</h1>
-      <p className="text-cyan-800 text-[10px] mt-2 animate-bounce uppercase tracking-[0.3em]">Kernel_v36_Stable</p>
+      <p className="text-cyan-800 text-[10px] mt-2 animate-bounce uppercase tracking-[0.3em]">Kernel_v37_Stable</p>
     </div>
   );
 
@@ -369,6 +380,7 @@ const App = () => {
         </button>
       </section>
 
+      {/* Widget Renault Trucks discret comme demandé */}
       <div className="flex items-center justify-between p-4 bg-blue-900/5 border border-blue-900/10 rounded-2xl opacity-30">
         <div className="flex items-center gap-3"><Box size={16} className="text-blue-500" /><span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Renault Trucks Logistics</span></div>
         <span className="text-[8px] text-blue-900 font-black">VÉNISSIEUX_HUB</span>
@@ -432,7 +444,7 @@ const App = () => {
                   <div className="flex items-center justify-between">
                     <button onClick={() => setView('home')} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-yellow-500"><ArrowLeft size={18}/></button>
                     <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none tracking-tighter">Arene <span className="text-yellow-500">Elite</span></h2>
-                    <button onClick={() => { setIsSubmitting(true); setTimeout(() => setIsSubmitting(false), 2000); }} disabled={isSubmitting} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-cyan-500 active:scale-90 transition-all">
+                    <button onClick={scanFFKMDA} disabled={isSubmitting} className="p-2 bg-slate-900 rounded-xl border border-slate-800 text-cyan-500 active:scale-90 transition-all">
                       <DownloadCloud size={18} className={isSubmitting ? 'animate-bounce' : ''} />
                     </button>
                   </div>
