@@ -6,6 +6,7 @@ import Login from './features/auth/Login';
 import Register from './features/auth/Register';
 import Home from './pages/Home';
 import Members from './features/members/Members';
+import Profile from './features/members/Profile';
 import SystemDashboard from './features/admin/SystemDashboard';
 import Tournament from './features/tournament/Tournament';
 import CalendarPage from './features/calendar/Calendar';
@@ -54,14 +55,12 @@ const AppContent = () => {
     setIsInitializing(false);
   }, []);
 
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-cyan-500 font-mono tracking-widest uppercase">
-        <div className="w-8 h-8 border-t-2 border-cyan-500 border-solid rounded-full animate-spin mb-4"></div>
-        SYNC S.M.G...
-      </div>
-    );
-  }
+  const handleUpdateUser = (updatedUser: User) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem('smg_current_user', JSON.stringify(updatedUser));
+  };
+
+  if (isInitializing) return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-cyan-500 font-mono">SYNC...</div>;
 
   return (
     <div className="min-h-screen bg-[#121212] text-[#eee] flex justify-center selection:bg-cyan-500/30">
@@ -69,7 +68,9 @@ const AppContent = () => {
         <Routes>
           <Route path="/login" element={!currentUser ? <Login onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
           <Route path="/register" element={!currentUser ? <Register onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
+          
           <Route path="/home" element={currentUser ? <Home currentUser={currentUser} announcements={[]} onNavigate={(r) => navigate('/' + r.toLowerCase())} /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={currentUser ? <Profile currentUser={currentUser} onUpdate={handleUpdateUser} onNavigate={(r) => navigate('/' + r.toLowerCase())} /> : <Navigate to="/login" />} />
           <Route path="/members" element={currentUser ? <Members currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/system" element={currentUser?.role === 'Admin' ? <SystemDashboard /> : <Navigate to="/home" />} />
           <Route path="/tournament" element={currentUser ? <Tournament currentUser={currentUser} /> : <Navigate to="/login" />} />
