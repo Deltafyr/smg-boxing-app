@@ -1,7 +1,8 @@
 import React from 'react';
 import { AppRoute, Announcement, User } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Timer, Trophy, Calendar } from 'lucide-react';
+import { Timer, Trophy, Calendar, LogOut } from 'lucide-react';
+import { getAuth, signOut } from 'firebase/auth';
 
 interface HomeProps {
   onNavigate: (route: AppRoute) => void;
@@ -10,9 +11,16 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate, currentUser }) => {
+  const handleLogout = () => {
+    signOut(getAuth());
+    localStorage.removeItem('smg_current_user');
+    window.location.reload();
+  };
+
   return (
     <div className="p-4 space-y-6 pb-20 max-w-lg mx-auto">
-      <div className="flex flex-col items-center justify-center py-6 space-y-4">
+      <div className="flex flex-col items-center justify-center py-6 space-y-4 relative">
+        <button onClick={handleLogout} className="absolute top-0 right-0 text-slate-500 hover:text-rose-500 p-2"><LogOut size={18}/></button>
         <div className="relative w-32 h-32 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800 shadow-2xl overflow-hidden"><img src="/logo.png?v=2" alt="SMG" className="w-full h-full object-contain p-2"/></div>
         <div className="text-center space-y-1">
              <h1 className="text-3xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-rose-500">S.M.G BOXING</h1>

@@ -30,11 +30,7 @@ const BottomNav = ({ role }: { role: string }) => {
       {navItems.map((item) => {
         const isActive = location.pathname.startsWith(item.path);
         return (
-          <button
-            key={item.id}
-            onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center justify-center transition-all ${isActive ? 'text-cyan-400 scale-110' : 'text-slate-500 hover:text-slate-400'}`}
-          >
+          <button key={item.id} onClick={() => navigate(item.path)} className={`flex flex-col items-center justify-center transition-all ${isActive ? 'text-cyan-400 scale-110' : 'text-slate-500 hover:text-slate-400'}`}>
             <item.icon size={20} />
             <span className="text-[9px] font-bold uppercase mt-1 tracking-tighter">{item.label}</span>
           </button>
@@ -52,19 +48,10 @@ const AppContent = () => {
   useEffect(() => {
     const stored = localStorage.getItem('smg_current_user');
     if (stored) {
-      try {
-        setCurrentUser(JSON.parse(stored));
-      } catch (e) {
-        localStorage.removeItem('smg_current_user');
-      }
+      try { setCurrentUser(JSON.parse(stored)); } catch (e) { localStorage.removeItem('smg_current_user'); }
     }
     setIsInitializing(false);
   }, []);
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    navigate('/home');
-  };
 
   if (isInitializing) {
     return (
@@ -79,7 +66,7 @@ const AppContent = () => {
     <div className="min-h-screen bg-[#121212] text-[#eee] flex justify-center selection:bg-cyan-500/30">
       <main className="w-full max-w-md relative min-h-screen shadow-2xl border-x border-slate-900/50 overflow-x-hidden">
         <Routes>
-          <Route path="/login" element={!currentUser ? <Login onLogin={handleLogin} onNavigate={(r) => navigate('/' + r.toLowerCase())} /> : <Navigate to="/home" />} />
+          <Route path="/login" element={!currentUser ? <Login onLogin={(u) => {setCurrentUser(u); navigate('/home');}} /> : <Navigate to="/home" />} />
           <Route path="/home" element={currentUser ? <Home currentUser={currentUser} announcements={[]} onNavigate={(r) => navigate('/' + r.toLowerCase())} /> : <Navigate to="/login" />} />
           <Route path="/members" element={currentUser ? <Members currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/system" element={currentUser?.role === 'Admin' ? <SystemDashboard /> : <Navigate to="/home" />} />
@@ -88,17 +75,10 @@ const AppContent = () => {
           <Route path="/timer" element={currentUser ? <TimerPage /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to={currentUser ? "/home" : "/login"} />} />
         </Routes>
-        
         {currentUser && <BottomNav role={currentUser.role} />}
       </main>
     </div>
   );
 };
 
-export default function App() {
-  return (
-    <Router>
-      <AppContent />
-    </Router>
-  );
-}
+export default function App() { return <Router><AppContent /></Router>; }

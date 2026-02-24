@@ -2,17 +2,16 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Fallback sécurisé : si Vercel n'a pas les clés, on utilise un faux texte
+// Clés originelles injectées directement. Bypass de Vercel Env Vars.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mock-domain",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "mock-project",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "mock-bucket",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "mock-sender",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "mock-app-id"
+  apiKey: "AIzaSyBn56YlvO5xEJtStcmqb2CpjPr1IoqxQlY",
+  authDomain: "smg-boxing-club.firebaseapp.com",
+  projectId: "smg-boxing-club",
+  storageBucket: "smg-boxing-club.firebasestorage.app",
+  messagingSenderId: "680615984001",
+  appId: "1:680615984001:web:9147a52aa9e602fd694680",
+  measurementId: "G-Y4W98BNTHN"
 };
-
-export const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
 
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
