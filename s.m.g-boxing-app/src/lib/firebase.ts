@@ -2,7 +2,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Clés originelles injectées directement. Bypass de Vercel Env Vars.
 const firebaseConfig = {
   apiKey: "AIzaSyBn56YlvO5xEJtStcmqb2CpjPr1IoqxQlY",
   authDomain: "smg-boxing-club.firebaseapp.com",
