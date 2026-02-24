@@ -140,7 +140,7 @@ export default function TimerPage() {
             <span className="text-slate-500 uppercase text-[8px] block">Actuel</span>
             <span className={`font-bold ${color}`}>{phase === 'PREP' ? 'Prépa' : phase === 'WORK' ? 'Effort' : phase === 'REST' ? 'Repos' : 'Terminé'}</span>
           </div>
-          <div className="text-slate-600 flex-1 text-center font-bold">>></div>
+          <div className="text-slate-600 flex-1 text-center font-bold">&gt;&gt;</div>
           <div className="text-right w-1/3">
             <span className="text-slate-500 uppercase text-[8px] block">À suivre</span>
             <span className="font-bold text-white">{getNextStepInfo()}</span>
