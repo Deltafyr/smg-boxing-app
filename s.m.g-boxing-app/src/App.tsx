@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { Home as HomeIcon, Users, Trophy, ShieldAlert } from 'lucide-react';
 
 import Login from './features/auth/Login';
+import Register from './features/auth/Register';
 import Home from './pages/Home';
 import Members from './features/members/Members';
 import SystemDashboard from './features/admin/SystemDashboard';
@@ -66,7 +67,8 @@ const AppContent = () => {
     <div className="min-h-screen bg-[#121212] text-[#eee] flex justify-center selection:bg-cyan-500/30">
       <main className="w-full max-w-md relative min-h-screen shadow-2xl border-x border-slate-900/50 overflow-x-hidden">
         <Routes>
-          <Route path="/login" element={!currentUser ? <Login onLogin={(u) => {setCurrentUser(u); navigate('/home');}} /> : <Navigate to="/home" />} />
+          <Route path="/login" element={!currentUser ? <Login onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
+          <Route path="/register" element={!currentUser ? <Register onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
           <Route path="/home" element={currentUser ? <Home currentUser={currentUser} announcements={[]} onNavigate={(r) => navigate('/' + r.toLowerCase())} /> : <Navigate to="/login" />} />
           <Route path="/members" element={currentUser ? <Members currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/system" element={currentUser?.role === 'Admin' ? <SystemDashboard /> : <Navigate to="/home" />} />

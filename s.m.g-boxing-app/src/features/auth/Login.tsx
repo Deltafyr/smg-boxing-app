@@ -8,9 +8,10 @@ import { ChevronRight } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
+  onNavigate: (route: string) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -44,14 +45,24 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       
       <FuturisticCard className="w-full max-w-sm" borderColor="cyan">
         <form onSubmit={handleLogin} className="space-y-4">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm outline-none focus:border-cyan-500" placeholder="IDENTIFIANT" required />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm outline-none focus:border-cyan-500" placeholder="MOT DE PASSE" required />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm outline-none focus:border-cyan-500" placeholder="Adresse Email" required />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm outline-none focus:border-cyan-500" placeholder="Mot de Passe" required />
           {error && <p className="text-rose-500 text-[10px] text-center font-bold bg-rose-500/10 p-2 rounded">{error}</p>}
           <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-black py-3 rounded-lg flex justify-center items-center uppercase text-xs shadow-lg active:scale-95 transition-all">
-            {isLoading ? 'ANALYSE...' : 'ACCÉDER'} <ChevronRight size={16} className="ml-2" />
+            {isLoading ? 'ANALYSE...' : 'ACCÉDER AU TERMINAL'} <ChevronRight size={16} className="ml-2" />
           </button>
         </form>
       </FuturisticCard>
+
+      <div className="text-center pt-2">
+        <p className="text-slate-500 text-xs mb-2">Première connexion ?</p>
+        <button 
+          onClick={() => onNavigate('register')}
+          className="text-cyan-400 text-xs font-bold uppercase tracking-widest border-b border-cyan-400/30 pb-0.5 hover:text-cyan-300 transition-colors"
+        >
+          S'inscrire au club
+        </button>
+      </div>
     </div>
   );
 };
