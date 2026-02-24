@@ -6,18 +6,31 @@ import FuturisticCard from '../../components/ui/FuturisticCard';
 import { Plus, Trophy, Flag, Users } from 'lucide-react';
 
 export default function CalendarPage({ currentUser }: { currentUser: User }) {
+  if (!currentUser) return null; // Sécurité anti-crash absolue
+
   const [events, setEvents] = useState<CalendarEvent[]>([]); const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState(''); const [newDate, setNewDate] = useState(''); const [newType, setNewType] = useState<EventType>('Événement Club');
 
-  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
 
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        const snap = await getDocs(collection(db, 'events')); const evs: CalendarEvent[] = [];
+        const evs: CalendarEvent[] = [];
+        
+        // 1. Récupération des événements manuels de l'Agenda
+        const snap = await getDocs(collection(db, 'events')); 
         snap.forEach(doc => evs.push({ id: doc.id, ...doc.data() } as CalendarEvent));
+
+        // 2. Récupération automatique des Tournois de l'Arène
+        const compSnap = await getDocs(collection(db, 'competitions'));
+        compSnap.forEach(doc => {
+          const c = doc.data();
+          evs.push({ id: doc.id, title: c.name || `${c.compType} ${c.compStyle} - ${c.location}`, date: c.date, type: c.compType || 'Championnat' });
+        });
+
         setEvents(evs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       } catch (e) {} setIsLoading(false);
     };
@@ -29,7 +42,7 @@ export default function CalendarPage({ currentUser }: { currentUser: User }) {
     try {
       const ev = { title: newTitle, date: newDate, type: newType };
       const docRef = await addDoc(collection(db, 'events'), ev);
-      setEvents(prev => [...prev, { id: docRef.id, ...ev }].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      setEvents(prev => [...prev, { id: docRef.id, ...ev } as CalendarEvent].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       setShowAddForm(false); setNewTitle(''); setNewDate('');
     } catch (err) {} setIsLoading(false);
   };
@@ -64,8 +77,10 @@ export default function CalendarPage({ currentUser }: { currentUser: User }) {
             <div className="w-12 h-12 rounded-full bg-slate-900 border-2 border-slate-800 flex items-center justify-center shrink-0 shadow-lg shadow-black">{getIcon(ev.type)}</div>
             <FuturisticCard className="flex-1" borderColor="slate">
               <div className="flex justify-between items-start">
-                 <div><h4 className="font-bold text-slate-100 text-sm">{ev.title}</h4><span className="text-[10px] text-slate-500 font-mono uppercase">{ev.type}</span></div>
-                 <span className="bg-slate-900 text-slate-300 text-[10px] font-black font-mono px-2 py-1 rounded border border-slate-700">{new Date(ev.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+                 <div><h4 className="font-bold text-slate-100 text-sm pr-2">{ev.title}</h4><span className="text-[10px] text-slate-500 font-mono uppercase">{ev.type}</span></div>
+                 <span className="bg-slate-900 text-slate-300 text-[10px] font-black font-mono px-2 py-1 rounded border border-slate-700 text-center leading-tight">
+                   {new Date(ev.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                 </span>
               </div>
             </FuturisticCard>
           </div>

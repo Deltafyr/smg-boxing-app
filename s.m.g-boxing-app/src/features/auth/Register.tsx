@@ -16,7 +16,7 @@ export default function Register({ onLogin, onNavigate }: { onLogin: (u: User)=>
     e.preventDefault(); setError(''); setIsLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const newUser: User = { id: cred.user.uid, name: `${formData.firstName} ${formData.lastName}`.trim(), firstName: formData.firstName, lastName: formData.lastName, email: formData.email, phone: formData.phone, birthDate: formData.birthDate, gender: formData.gender as any, memberType: formData.memberType as any, category: 'Loisir', weight: formData.weight, emergencyContact: formData.emergencyContact, emergencyPhone: formData.emergencyPhone, role: 'Member' };
+      const newUser: User = { id: cred.user.uid, name: `${formData.firstName} ${formData.lastName}`.trim(), firstName: formData.firstName, lastName: formData.lastName, email: formData.email, phone: formData.phone, birthDate: formData.birthDate, gender: formData.gender as any, memberType: formData.memberType as any, category: 'Loisir', weight: formData.weight, emergencyContact: formData.emergencyContact, emergencyPhone: formData.emergencyPhone, role: 'Member', medCertStatus: 'Non fourni' };
       await setDoc(doc(db, 'members', cred.user.uid), newUser);
       localStorage.setItem('smg_current_user', JSON.stringify(newUser));
       onLogin(newUser);

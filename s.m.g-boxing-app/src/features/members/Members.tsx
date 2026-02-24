@@ -3,14 +3,24 @@ import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firesto
 import { db } from '../../lib/firebase';
 import { User, UserRole } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Phone, MessageCircle, ChevronDown, ChevronUp, Shield, Settings, Trash2, Mail, FileText, AlertCircle } from 'lucide-react';
+import { Phone, MessageCircle, ChevronDown, ChevronUp, Shield, Settings, Trash2, Mail, FileText, AlertCircle, FileCheck } from 'lucide-react';
+
+const getFFKMDACategory = (user: User) => {
+  if (!user.birthDate) return 'N/C';
+  const age = new Date().getFullYear() - new Date(user.birthDate).getFullYear();
+  let cat = age<8 ? 'Pré-Poussin' : age<=9 ? 'Poussin' : age<=11 ? 'Benjamin' : age<=13 ? 'Minime' : age<=15 ? 'Cadet' : age<=17 ? 'Junior' : age<=34 ? 'Senior' : 'Vétéran';
+  const weightStr = user.weight ? `${user.weight}kg` : 'Poids N/C';
+  return `${cat} ${user.gender === 'Femme' ? '(F)' : '(M)'} - ${weightStr}`;
+};
 
 export default function Members({ currentUser }: { currentUser: User }) {
+  if (!currentUser) return null;
+
   const [memberList, setMemberList] = useState<User[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -61,7 +71,10 @@ export default function Members({ currentUser }: { currentUser: User }) {
               {expandedId === user.id && canViewDetails && (
                 <div className="mt-4 pt-4 border-t border-slate-800 animate-fade-in space-y-4">
                   <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 space-y-2">
-                    <h4 className="text-[10px] font-black text-slate-400 flex items-center uppercase tracking-widest border-b border-slate-800/50 pb-1 mb-2"><FileText size={12} className="mr-2 text-cyan-500"/> Dossier Combattant</h4>
+                    <h4 className="text-[10px] font-black text-slate-400 flex items-center justify-between uppercase tracking-widest border-b border-slate-800/50 pb-1 mb-2">
+                      <span className="flex items-center"><FileText size={12} className="mr-2 text-cyan-500"/> Dossier Combattant</span>
+                      <span className="text-[9px] font-mono text-cyan-400">{getFFKMDACategory(user)}</span>
+                    </h4>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div><span className="block text-[8px] text-slate-500 uppercase">Type</span><span className="text-slate-200">{user.memberType || '-'}</span></div>
                       <div><span className="block text-[8px] text-slate-500 uppercase">Naissance</span><span className="text-slate-200">{user.birthDate ? new Date(user.birthDate).toLocaleDateString('fr-FR') : '-'}</span></div>
@@ -79,10 +92,11 @@ export default function Members({ currentUser }: { currentUser: User }) {
                   </div>
                   {isStaff && (
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
-                      <div className="flex items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1"><Settings size={12} className="mr-2 text-cyan-500" /> Évaluation Staff</div>
+                      <div className="flex items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1"><Settings size={12} className="mr-2 text-cyan-500" /> Administration Staff</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><label className="text-[9px] text-slate-600 block mb-1 font-bold">DROITS SYSTEME</label><select disabled={currentUser.role !== 'Admin'} value={user.role} onChange={e => updateU(user.id, { role: e.target.value as UserRole })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 disabled:opacity-50"><option value="Member">Membre</option><option value="Coach">Coach</option><option value="Admin">Admin</option></select></div>
                         <div><label className="text-[9px] text-slate-600 block mb-1 font-bold">STATUT COMBATTANT</label><select value={user.category || 'Loisir'} onChange={e => updateU(user.id, { category: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500"><option value="Loisir">Loisir</option><option value="Compétiteur">Compétiteur</option></select></div>
+                        <div className="col-span-2"><label className="text-[9px] text-slate-600 block mb-1 font-bold">CERTIFICAT MÉDICAL</label><select value={user.medCertStatus || 'Non fourni'} onChange={e => updateU(user.id, { medCertStatus: e.target.value as any })} className={`w-full bg-slate-900 border rounded-lg p-2 text-xs outline-none focus:border-cyan-500 ${user.medCertStatus === 'Validé' ? 'border-emerald-500/50 text-emerald-500' : user.medCertStatus === 'En attente' ? 'border-amber-500/50 text-amber-500' : user.medCertStatus === 'Refusé' ? 'border-rose-500/50 text-rose-500' : 'border-slate-700 text-white'}`}><option value="Non fourni">Non fourni</option><option value="En attente">En attente d'examen</option><option value="Validé">Validé</option><option value="Refusé">Refusé</option></select></div>
                       </div>
                       {currentUser.role === 'Admin' && user.id !== currentUser.id && (<div className="flex justify-end pt-2 border-t border-slate-900"><button onClick={() => deleteU(user.id)} className="text-rose-500 hover:text-rose-400 p-1 flex items-center text-[9px] uppercase font-black tracking-widest"><Trash2 size={12} className="mr-1"/> Expulser</button></div>)}
                     </div>

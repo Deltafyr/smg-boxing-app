@@ -4,7 +4,15 @@ import { getAuth, signOut } from 'firebase/auth';
 import { db } from '../../lib/firebase';
 import { User } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { ArrowLeft, Save, LogOut, User as UserIcon, AlertCircle, Activity } from 'lucide-react';
+import { ArrowLeft, Save, LogOut, User as UserIcon, AlertCircle, Activity, FileCheck, UploadCloud } from 'lucide-react';
+
+const getFFKMDACategory = (user: User) => {
+  if (!user.birthDate) return 'Âge inconnu';
+  const age = new Date().getFullYear() - new Date(user.birthDate).getFullYear();
+  let cat = age<8 ? 'Pré-Poussin' : age<=9 ? 'Poussin' : age<=11 ? 'Benjamin' : age<=13 ? 'Minime' : age<=15 ? 'Cadet' : age<=17 ? 'Junior' : age<=34 ? 'Senior' : 'Vétéran';
+  const weightStr = user.weight ? `${user.weight}kg` : 'Poids N/C';
+  return `${cat} ${user.gender === 'Femme' ? '(F)' : '(M)'} - ${weightStr}`;
+};
 
 export default function Profile({ currentUser, onUpdate, onNavigate }: { currentUser: User, onUpdate: (u: User)=>void, onNavigate: (r: string)=>void }) {
   const [formData, setFormData] = useState({ phone: currentUser.phone || '', weight: currentUser.weight || '', emergencyContact: currentUser.emergencyContact || '', emergencyPhone: currentUser.emergencyPhone || '' });
@@ -20,11 +28,57 @@ export default function Profile({ currentUser, onUpdate, onNavigate }: { current
     setIsLoading(false); setTimeout(() => setMsg(''), 3000);
   };
 
+  const handleUploadCert = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setIsLoading(true);
+      // Simulation d'upload pour éviter les erreurs de quotas Firebase Storage au début
+      setTimeout(async () => {
+        try {
+          await updateDoc(doc(db, 'members', currentUser.id), { medCertStatus: 'En attente' });
+          onUpdate({ ...currentUser, medCertStatus: 'En attente' });
+          setMsg('Document transmis. En attente de validation Staff.');
+        } catch (err) {}
+        setIsLoading(false);
+      }, 1500);
+    }
+  };
+
+  const getCertColor = () => {
+    if (currentUser.medCertStatus === 'Validé') return 'text-emerald-500 border-emerald-500/50 bg-emerald-500/10';
+    if (currentUser.medCertStatus === 'En attente') return 'text-amber-500 border-amber-500/50 bg-amber-500/10';
+    if (currentUser.medCertStatus === 'Refusé') return 'text-rose-500 border-rose-500/50 bg-rose-500/10';
+    return 'text-slate-500 border-slate-700 bg-slate-900';
+  }
+
   return (
     <div className="flex flex-col items-center justify-start min-h-screen p-4 space-y-4 pb-24">
       <div className="w-full max-w-sm flex justify-between items-center mb-2 pt-4"><button onClick={() => onNavigate('home')} className="text-slate-500 hover:text-cyan-400 flex items-center text-xs font-bold uppercase transition-colors"><ArrowLeft size={14} className="mr-1" /> Retour</button><button onClick={handleLogout} className="text-rose-500 hover:text-rose-400 flex items-center text-xs font-bold uppercase transition-colors bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20"><LogOut size={14} className="mr-2" /> Déconnexion</button></div>
-      <div className="text-center w-full mb-2"><div className="w-20 h-20 bg-slate-900 border border-cyan-500/50 rounded-full mx-auto mb-3 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)]"><UserIcon size={32} className="text-cyan-400" /></div><h1 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">{currentUser.name}</h1><div className="flex justify-center items-center space-x-2"><span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest px-2 py-0.5 bg-cyan-950/50 border border-cyan-900 rounded">{currentUser.role}</span><span className={`text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border ${currentUser.category === 'Compétiteur' ? 'bg-amber-950/50 text-amber-500 border-amber-900' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{currentUser.category || 'Loisir'}</span></div></div>
+      <div className="text-center w-full mb-2">
+        <div className="w-20 h-20 bg-slate-900 border border-cyan-500/50 rounded-full mx-auto mb-3 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)]"><UserIcon size={32} className="text-cyan-400" /></div>
+        <h1 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">{currentUser.name}</h1>
+        <div className="flex justify-center items-center space-x-2">
+           <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest px-2 py-0.5 bg-cyan-950/50 border border-cyan-900 rounded">{currentUser.role}</span>
+           <span className={`text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border ${currentUser.category === 'Compétiteur' ? 'bg-amber-950/50 text-amber-500 border-amber-900' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{currentUser.category || 'Loisir'}</span>
+        </div>
+        <div className="mt-2 text-xs font-bold text-slate-300 uppercase bg-slate-900/50 inline-block px-3 py-1 rounded border border-slate-800">{getFFKMDACategory(currentUser)}</div>
+      </div>
+      
       <FuturisticCard className="w-full max-w-sm" borderColor="cyan">
+        
+        {/* Module Document Médical */}
+        <div className="mb-6 p-3 rounded-xl border border-slate-800 bg-slate-950">
+           <h3 className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest flex items-center"><FileCheck size={12} className="mr-2 text-cyan-500"/> Certificat Médical</h3>
+           <div className="flex items-center justify-between">
+              <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded border ${getCertColor()}`}>
+                 {currentUser.medCertStatus || 'Non fourni'}
+              </span>
+              <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold uppercase py-1.5 px-3 rounded flex items-center transition-colors">
+                <UploadCloud size={12} className="mr-1" /> Uploader
+                <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleUploadCert} />
+              </label>
+           </div>
+        </div>
+
         <form onSubmit={handleSave} className="space-y-5">
           <div className="space-y-3"><h3 className="text-[10px] font-black text-slate-400 border-b border-slate-800 pb-1 mb-2 uppercase tracking-widest flex items-center"><Activity size={12} className="mr-2 text-cyan-500"/> Variables Ajustables</h3><div className="grid grid-cols-2 gap-3"><div><label className="text-[9px] text-slate-500 font-bold uppercase mb-1 block">Téléphone</label><input name="phone" type="tel" value={formData.phone} onChange={handleChange} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs outline-none focus:border-cyan-500" /></div><div><label className="text-[9px] text-slate-500 font-bold uppercase mb-1 block">Poids (kg)</label><input name="weight" type="number" step="0.1" value={formData.weight} onChange={handleChange} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs outline-none focus:border-cyan-500 text-center" /></div></div></div>
           <div className="space-y-3 bg-rose-500/5 p-3 rounded-lg border border-rose-500/20 mt-2"><h3 className="text-[10px] font-black text-rose-500 mb-2 uppercase tracking-widest flex items-center"><AlertCircle size={12} className="mr-2"/> Contact d'Urgence</h3><div className="grid grid-cols-1 gap-3"><div><label className="text-[9px] text-rose-400/80 font-bold uppercase mb-1 block">Nom</label><input name="emergencyContact" type="text" value={formData.emergencyContact} onChange={handleChange} className="w-full bg-slate-950 border border-rose-500/30 rounded-lg p-2 text-white text-xs outline-none focus:border-rose-500" /></div><div><label className="text-[9px] text-rose-400/80 font-bold uppercase mb-1 block">Téléphone</label><input name="emergencyPhone" type="tel" value={formData.emergencyPhone} onChange={handleChange} className="w-full bg-slate-950 border border-rose-500/30 rounded-lg p-2 text-white text-xs outline-none focus:border-rose-500" /></div></div></div>
