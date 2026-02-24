@@ -14,7 +14,6 @@ export const useSystemStore = create<SystemState>((set) => ({
   consoleOutput: '',
   callCortex: async (action, payload) => {
      set({ isProcessing: true });
-     // Simulation du call Cortex
      setTimeout(() => set({ isProcessing: false, consoleOutput: 'Cortex Link Stabilisé.' }), 1000);
   },
   setConsoleOutput: (msg) => set({ consoleOutput: msg })
