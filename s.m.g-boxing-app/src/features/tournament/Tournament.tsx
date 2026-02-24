@@ -93,7 +93,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
       <div className="p-4 pb-24 max-w-lg mx-auto space-y-6">
         <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase">&larr; Retour</button>
         
-        {/* CARTE COMPETITION */}
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
            {isStaff && (
              <button onClick={() => isEditingComp ? handleEditCompSave() : setIsEditingComp(true)} className="absolute top-3 right-3 text-slate-500 hover:text-amber-500 p-2">

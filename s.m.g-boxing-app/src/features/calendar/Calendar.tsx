@@ -6,7 +6,7 @@ import FuturisticCard from '../../components/ui/FuturisticCard';
 import { Plus, Trophy, Flag, Users } from 'lucide-react';
 
 export default function CalendarPage({ currentUser }: { currentUser: User }) {
-  if (!currentUser) return null; // Sécurité anti-crash absolue
+  if (!currentUser) return null;
 
   const [events, setEvents] = useState<CalendarEvent[]>([]); const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -19,18 +19,13 @@ export default function CalendarPage({ currentUser }: { currentUser: User }) {
       setIsLoading(true);
       try {
         const evs: CalendarEvent[] = [];
-        
-        // 1. Récupération des événements manuels de l'Agenda
         const snap = await getDocs(collection(db, 'events')); 
         snap.forEach(doc => evs.push({ id: doc.id, ...doc.data() } as CalendarEvent));
-
-        // 2. Récupération automatique des Tournois de l'Arène
         const compSnap = await getDocs(collection(db, 'competitions'));
         compSnap.forEach(doc => {
           const c = doc.data();
           evs.push({ id: doc.id, title: c.name || `${c.compType} ${c.compStyle} - ${c.location}`, date: c.date, type: c.compType || 'Championnat' });
         });
-
         setEvents(evs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       } catch (e) {} setIsLoading(false);
     };
