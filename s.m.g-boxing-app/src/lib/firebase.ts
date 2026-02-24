@@ -3,7 +3,6 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Fallback sécurisé : si Vercel n'a pas les clés, on utilise un faux texte
-// pour éviter que initializeApp ne fasse crasher l'application instantanément.
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-key",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mock-domain",

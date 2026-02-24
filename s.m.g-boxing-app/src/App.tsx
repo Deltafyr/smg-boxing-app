@@ -10,7 +10,6 @@ import Tournament from './features/tournament/Tournament';
 import CalendarPage from './features/calendar/Calendar';
 import TimerPage from './features/training/Timer';
 import { User } from './types';
-import { isFirebaseConfigured } from './lib/firebase';
 
 const BottomNav = ({ role }: { role: string }) => {
   const navigate = useNavigate();
@@ -66,27 +65,6 @@ const AppContent = () => {
     setCurrentUser(user);
     navigate('/home');
   };
-
-  if (!isFirebaseConfigured) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6 text-center">
-        <ShieldAlert size={64} className="text-amber-500 animate-pulse mb-4" />
-        <h1 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">Matrice Aveugle</h1>
-        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest max-w-sm mb-6">
-          Les variables d'environnement Firebase sont absentes du serveur Vercel. 
-        </p>
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl text-left text-xs text-slate-300">
-          <p className="font-bold text-amber-500 mb-2">Action Requise pour Armand :</p>
-          <ol className="list-decimal pl-4 space-y-1">
-            <li>Ouvre ton projet sur Vercel.com</li>
-            <li>Va dans <b>Settings</b> {'>'} <b>Environment Variables</b></li>
-            <li>Copie/Colle toutes les clés de ton fichier <b>.env.local</b></li>
-            <li>Redéploie l'application (Redeploy)</li>
-          </ol>
-        </div>
-      </div>
-    );
-  }
 
   if (isInitializing) {
     return (
