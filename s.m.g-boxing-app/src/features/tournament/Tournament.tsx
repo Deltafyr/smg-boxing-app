@@ -1,40 +1,7 @@
-﻿import React, { useState } from 'react';
-import { Trophy, Swords, Activity, Play, Zap, AlertTriangle } from 'lucide-react';
-
-// --- Définitions intégrées pour assurer la compilation autonome ---
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  role?: string;
-  category?: string;
-}
-
-const FuturisticCard: React.FC<{
-  children: React.ReactNode;
-  className?: string;
-  title?: string;
-  borderColor?: 'cyan' | 'rose' | 'slate';
-}> = ({ children, className = '', title, borderColor = 'slate' }) => {
-  const borderColors = {
-    cyan: 'border-cyan-500/30 shadow-[0_0_15px_-5px_rgba(6,182,212,0.1)]',
-    rose: 'border-rose-500/30 shadow-[0_0_15px_-5px_rgba(244,63,94,0.1)]',
-    slate: 'border-slate-700/50',
-  };
-  const accent = borderColor === 'cyan' ? 'border-cyan-400' : borderColor === 'rose' ? 'border-rose-400' : 'border-slate-500';
-
-  return (
-    <div className={`relative bg-slate-900/50 backdrop-blur-md border ${borderColors[borderColor]} rounded-2xl p-4 overflow-hidden ${className}`}>
-      <div className={`absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 rounded-tl-lg ${accent}`} />
-      <div className={`absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 rounded-tr-lg ${accent}`} />
-      <div className={`absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 rounded-bl-lg ${accent}`} />
-      <div className={`absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 rounded-br-lg ${accent}`} />
-      {title && <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3 border-b border-slate-800 pb-1">{title}</h3>}
-      {children}
-    </div>
-  );
-};
-// -----------------------------------------------------------------
+import React, { useState } from 'react';
+import { User } from '../../types';
+import FuturisticCard from '../../components/ui/FuturisticCard';
+import { Trophy, Swords, Activity, Play, Zap } from 'lucide-react';
 
 interface TournamentProps { 
   currentUser: User; 
@@ -55,9 +22,7 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
 
-  // Algorithme de Seeding FFKMDA (1 vs 16, 8 vs 9, etc.)
   const generateBracket = () => {
-    // Mock de 16 combattants
     const seedPlayers = Array.from({ length: 16 }, (_, i) => ({
       id: `fighter-${i + 1}`,
       seed: i + 1,
@@ -69,14 +34,11 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
     const firstRoundMatches: Match[] = [];
     
     for (let i = 0; i < bracketOrder.length; i += 2) {
-      const redCorner = seedPlayers.find(p => p.seed === bracketOrder[i]);
-      const blueCorner = seedPlayers.find(p => p.seed === bracketOrder[i+1]);
-      
       firstRoundMatches.push({
         id: `match-1-8-${i/2}`,
         round: '1/8 Finale',
-        red: redCorner,
-        blue: blueCorner,
+        red: seedPlayers.find(p => p.seed === bracketOrder[i]),
+        blue: seedPlayers.find(p => p.seed === bracketOrder[i+1]),
         status: 'pending',
         winner: null
       });
@@ -101,7 +63,6 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const simulateCombatStart = (matchId: string) => {
     const match = matches.find(m => m.id === matchId);
     if(!match) return;
-
     setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: 'active' } : m));
     addTimelineEvent('Arbitre', `Début du combat : ${match.red.name} vs ${match.blue.name}`, 'combat');
   };
@@ -119,31 +80,16 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
       </div>
 
       <div className="flex space-x-1 mb-6 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
-        <button 
-          onClick={() => setActiveTab('BRACKET')} 
-          className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'BRACKET' ? 'bg-amber-600 text-white shadow-xl' : 'text-slate-500'}`}
-        >
-          BRACKET & SEEDS
-        </button>
-        <button 
-          onClick={() => setActiveTab('TIMELINE')} 
-          className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-xl' : 'text-slate-500'}`}
-        >
-          TIMELINE ARÈNE
-        </button>
+        <button onClick={() => setActiveTab('BRACKET')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'BRACKET' ? 'bg-amber-600 text-white shadow-xl' : 'text-slate-500'}`}>BRACKET & SEEDS</button>
+        <button onClick={() => setActiveTab('TIMELINE')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-xl' : 'text-slate-500'}`}>TIMELINE ARÈNE</button>
       </div>
 
-      {/* --- MODULE BRACKET --- */}
       {activeTab === 'BRACKET' && (
         <div className="space-y-4 animate-fade-in flex-1 overflow-y-auto">
           {!bracketCreated ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800">
               <Trophy size={64} className="mb-4 opacity-50 text-amber-500" />
-              <p className="font-black italic uppercase tracking-widest mb-6">Aucun Bracket Actif</p>
-              <button 
-                onClick={generateBracket}
-                className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 uppercase tracking-wider flex items-center"
-              >
+              <button onClick={generateBracket} className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 uppercase tracking-wider flex items-center">
                 <Swords size={16} className="mr-2" /> Initialiser Bracket (16)
               </button>
             </div>
@@ -153,35 +99,19 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">1/8 de Finale</span>
                 <button onClick={() => {setBracketCreated(false); setMatches([]);}} className="text-[10px] text-rose-500 uppercase font-black hover:underline">Reset</button>
               </div>
-              
               {matches.map((match, idx) => (
                 <FuturisticCard key={match.id} borderColor={match.status === 'active' ? 'rose' : 'slate'} className="bg-slate-950/80">
                   <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
                     <span className="text-[10px] font-mono text-slate-500">MATCH #{idx + 1}</span>
-                    {match.status === 'pending' && (
-                      <button onClick={() => simulateCombatStart(match.id)} className="text-[10px] text-emerald-500 font-black uppercase flex items-center bg-emerald-500/10 px-2 py-1 rounded">
-                        <Play size={10} className="mr-1" /> Démarrer
-                      </button>
-                    )}
+                    {match.status === 'pending' && <button onClick={() => simulateCombatStart(match.id)} className="text-[10px] text-emerald-500 font-black uppercase flex items-center bg-emerald-500/10 px-2 py-1 rounded"><Play size={10} className="mr-1" /> Démarrer</button>}
                     {match.status === 'active' && <span className="text-[10px] text-rose-500 font-black uppercase flex items-center animate-pulse"><Zap size={10} className="mr-1"/> En cours</span>}
                   </div>
-                  
                   <div className="space-y-2">
-                    {/* Coin Rouge */}
                     <div className="flex justify-between items-center p-2 rounded-lg bg-red-950/20 border border-red-900/30">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-[10px] font-mono font-black text-red-500 w-5 text-center bg-red-500/10 rounded px-1">#{match.red.seed}</span>
-                        <span className="text-xs font-bold text-white uppercase">{match.red.name}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-500 uppercase">{match.red.club}</span>
+                      <div className="flex items-center space-x-3"><span className="text-[10px] font-mono font-black text-red-500 w-5 text-center bg-red-500/10 rounded px-1">#{match.red.seed}</span><span className="text-xs font-bold text-white uppercase">{match.red.name}</span></div>
                     </div>
-                    {/* Coin Bleu */}
                     <div className="flex justify-between items-center p-2 rounded-lg bg-blue-950/20 border border-blue-900/30">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-[10px] font-mono font-black text-blue-500 w-5 text-center bg-blue-500/10 rounded px-1">#{match.blue.seed}</span>
-                        <span className="text-xs font-bold text-white uppercase">{match.blue.name}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-500 uppercase">{match.blue.club}</span>
+                      <div className="flex items-center space-x-3"><span className="text-[10px] font-mono font-black text-blue-500 w-5 text-center bg-blue-500/10 rounded px-1">#{match.blue.seed}</span><span className="text-xs font-bold text-white uppercase">{match.blue.name}</span></div>
                     </div>
                   </div>
                 </FuturisticCard>
@@ -191,38 +121,20 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
         </div>
       )}
 
-      {/* --- MODULE TIMELINE --- */}
       {activeTab === 'TIMELINE' && (
         <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-2xl flex flex-col animate-fade-in overflow-hidden">
-          <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
-            <h3 className="text-xs font-black text-white flex items-center uppercase tracking-widest">
-              <Activity className="mr-2 text-cyan-500" size={14} /> Flux Firestore (Live)
-            </h3>
-          </div>
+          <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between"><h3 className="text-xs font-black text-white flex items-center uppercase tracking-widest"><Activity className="mr-2 text-cyan-500" size={14} /> Flux Live</h3></div>
           <div className="flex-1 p-4 overflow-y-auto space-y-3">
-            {timelineEvents.length === 0 ? (
-              <p className="text-slate-600 text-xs text-center mt-10 font-mono">En attente d'événements...</p>
-            ) : (
-              timelineEvents.map((ev) => (
-                <div key={ev.id} className="flex items-start space-x-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
-                  <span className="text-[9px] font-mono text-slate-500 mt-0.5">{ev.timestamp}</span>
-                  <div className="flex-1">
-                    <span className={`font-black uppercase tracking-wider mr-2 ${
-                      ev.type === 'system' ? 'text-amber-500' : 
-                      ev.type === 'alert' ? 'text-rose-500' : 'text-cyan-400'
-                    }`}>
-                      {ev.actor}
-                    </span>
-                    <span className="text-slate-300">{ev.action}</span>
-                  </div>
-                </div>
-              ))
-            )}
+            {timelineEvents.map((ev) => (
+              <div key={ev.id} className="flex items-start space-x-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <span className="text-[9px] font-mono text-slate-500 mt-0.5">{ev.timestamp}</span>
+                <div className="flex-1"><span className={`font-black uppercase tracking-wider mr-2 ${ev.type === 'system' ? 'text-amber-500' : 'text-cyan-400'}`}>{ev.actor}</span><span className="text-slate-300">{ev.action}</span></div>
+              </div>
+            ))}
           </div>
         </div>
       )}
     </div>
   );
 };
-
 export default Tournament;
