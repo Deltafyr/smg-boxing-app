@@ -21,7 +21,10 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error("CRITIQUE: L'élément <div id='root'> est introuvable dans index.html");
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <App />
