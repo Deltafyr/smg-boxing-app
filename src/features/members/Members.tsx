@@ -109,7 +109,6 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
                    </div>
                 </div>
                 
-                {/* Icône de déroulement uniquement si l'utilisateur a le droit d'ouvrir */}
                 {canViewDetails && (
                   <div className="text-slate-600 group-hover:text-cyan-500 transition-colors">
                     {expandedId === user.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -153,17 +152,17 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
                     <button onClick={() => user.phone && window.open(`tel:${user.phone}`)} className="flex flex-col items-center group"><Phone size={20} className="text-blue-500 mb-1 group-active:scale-90 transition-transform" /><span className="text-[9px] text-slate-500 font-bold">APPEL</span></button>
                   </div>
                   
-                  {/* BLOC RESERVÉ AU STAFF (Édition des Droits) */}
+                  {/* BLOC RESERVÉ AU STAFF */}
                   {isStaff && (
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
                       <div className="flex items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1"><Settings size={12} className="mr-2 text-cyan-500" /> Évaluation Staff</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-[9px] text-slate-600 block mb-1 font-bold">DROITS SYSTEME</label>
-                          <select value={user.role} onChange={(e) => updateUserInFirebase(user.id, { role: e.target.value as UserRole })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 transition-colors">
+                          <select disabled={currentUser.role !== 'Admin'} value={user.role} onChange={(e) => updateUserInFirebase(user.id, { role: e.target.value as UserRole })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 transition-colors disabled:opacity-50">
                             <option value="Member">Membre</option>
                             <option value="Coach">Coach</option>
-                            {currentUser.role === 'Admin' && <option value="Admin">Admin</option>}
+                            <option value="Admin">Admin</option>
                           </select>
                         </div>
                         <div>

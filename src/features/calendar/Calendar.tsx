@@ -18,7 +18,6 @@ const CalendarPage: React.FC<CalendarProps> = ({ currentUser }) => {
   const [newDate, setNewDate] = useState('');
   const [newType, setNewType] = useState<EventType>('Événement Club');
 
-  // SECURITE ALBEDO: L'opérateur '?' évite le crash si la props arrive avec 1ms de retard
   const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
 
   useEffect(() => {

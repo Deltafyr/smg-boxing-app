@@ -3,27 +3,52 @@ import { collection, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore'
 import { db } from '../../lib/firebase';
 import { User, Competition, FightCard } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Trophy, Plus, ChevronRight, Save, Swords } from 'lucide-react';
+import { Trophy, Plus, ChevronRight, Save, Swords, UserPlus } from 'lucide-react';
 
 interface TournamentProps { 
   currentUser: User; 
 }
 
+// MOTEUR DE CALCUL FFKMDA ALBEDO
+const getFFKMDACategory = (user: User) => {
+  if (!user.birthDate) return 'Catégorie inconnue';
+  const birthYear = new Date(user.birthDate).getFullYear();
+  const currentYear = new Date().getFullYear(); 
+  const age = currentYear - birthYear;
+  
+  let cat = '';
+  if (age < 8) cat = 'Pré-Poussin';
+  else if (age <= 9) cat = 'Poussin';
+  else if (age <= 11) cat = 'Benjamin';
+  else if (age <= 13) cat = 'Minime';
+  else if (age <= 15) cat = 'Cadet';
+  else if (age <= 17) cat = 'Junior';
+  else if (age <= 34) cat = 'Senior';
+  else cat = 'Vétéran';
+
+  const genderSuffix = user.gender === 'Femme' ? '(F)' : '(M)';
+  return `${cat} ${genderSuffix}`;
+};
+
 const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
   const [view, setView] = useState<'LIST' | 'DETAIL'>('LIST');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [fightCards, setFightCards] = useState<FightCard[]>([]);
+  const [members, setMembers] = useState<User[]>([]);
   const [activeComp, setActiveComp] = useState<Competition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Forms
+  // Forms Creation Comp
   const [showAddComp, setShowAddForm] = useState(false);
   const [newCompName, setNewCompName] = useState('');
   const [newCompDate, setNewCompDate] = useState('');
   const [newCompLoc, setNewCompLocation] = useState('');
+  
+  // Registration Form
+  const [selectedMemberId, setSelectedMemberId] = useState('');
 
-  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
-  const isCompetitor = currentUser.category === 'Compétiteur';
+  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
+  const isCompetitor = currentUser?.category === 'Compétiteur';
 
   useEffect(() => {
     fetchData();
@@ -41,6 +66,15 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
       const fList: FightCard[] = [];
       fSnap.forEach(d => fList.push({ id: d.id, ...d.data() } as FightCard));
       setFightCards(fList);
+      
+      // On charge la liste des membres pour permettre aux coachs d'inscrire des combattants
+      if (isStaff) {
+        const mSnap = await getDocs(collection(db, 'members'));
+        const mList: User[] = [];
+        mSnap.forEach(d => mList.push({ id: d.id, ...d.data() } as User));
+        setMembers(mList);
+      }
+
     } catch (e) { console.error(e); }
     setIsLoading(false);
   };
@@ -63,21 +97,47 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
     setView('DETAIL');
   };
 
+  // Auto-inscription par le compétiteur lui-même
   const handleRegisterMe = async () => {
     if (!activeComp || !isCompetitor) return;
     setIsLoading(true);
     try {
+      const computedCategory = getFFKMDACategory(currentUser);
       const newCard: any = {
         compId: activeComp.id,
         userId: currentUser.id,
         userName: currentUser.name,
-        weight: currentUser.weight || 'Inconnu',
-        category: currentUser.category,
+        weight: currentUser.weight || 'N/C',
+        category: computedCategory,
         area: '', matchNum: '', headgear: ''
       };
       const docRef = await addDoc(collection(db, 'fightCards'), newCard);
       setFightCards([...fightCards, { id: docRef.id, ...newCard }]);
     } catch (e) { alert('Erreur inscription'); }
+    setIsLoading(false);
+  };
+
+  // Inscription manuelle d'un membre par un coach
+  const handleRegisterMember = async () => {
+    if (!activeComp || !selectedMemberId) return;
+    const targetUser = members.find(m => m.id === selectedMemberId);
+    if (!targetUser) return;
+
+    setIsLoading(true);
+    try {
+      const computedCategory = getFFKMDACategory(targetUser);
+      const newCard: any = {
+        compId: activeComp.id,
+        userId: targetUser.id,
+        userName: targetUser.name,
+        weight: targetUser.weight || 'N/C',
+        category: computedCategory,
+        area: '', matchNum: '', headgear: ''
+      };
+      const docRef = await addDoc(collection(db, 'fightCards'), newCard);
+      setFightCards([...fightCards, { id: docRef.id, ...newCard }]);
+      setSelectedMemberId(''); // Reset du select
+    } catch (e) { alert('Erreur inscription manuelle'); }
     setIsLoading(false);
   };
 
@@ -104,10 +164,29 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
            <p className="text-xs text-slate-400 font-mono mt-1">{new Date(activeComp.date).toLocaleDateString('fr-FR')} - {activeComp.location}</p>
         </div>
 
+        {/* Bouton d'auto-inscription */}
         {isCompetitor && !amIRegistered && (
           <button onClick={handleRegisterMe} disabled={isLoading} className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-amber-600/20 active:scale-95 transition-all">
             {isLoading ? 'TRAITEMENT...' : 'S\'inscrire à cette compétition'}
           </button>
+        )}
+
+        {/* Panneau d'inscription manuelle par les Coachs */}
+        {isStaff && (
+          <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl mb-4 animate-fade-in">
+             <h4 className="text-[10px] font-black text-amber-500 mb-3 uppercase tracking-widest flex items-center"><UserPlus size={12} className="mr-2"/> Engagement manuel</h4>
+             <div className="flex space-x-2">
+               <select value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg text-xs p-2.5 text-white outline-none focus:border-amber-500">
+                 <option value="">Sélectionner un compétiteur...</option>
+                 {members
+                   .filter(m => m.category === 'Compétiteur' && !compCards.some(c => c.userId === m.id))
+                   .map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.weight ? m.weight+'kg' : 'Poids inconnu'})</option>
+                 ))}
+               </select>
+               <button onClick={handleRegisterMember} disabled={!selectedMemberId || isLoading} className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-4 rounded-lg font-black text-xs uppercase transition-colors disabled:opacity-50">Ajouter</button>
+             </div>
+          </div>
         )}
 
         <div>
@@ -120,9 +199,11 @@ const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
               
               return (
                 <div key={card.id} className={`p-3 rounded-xl border ${card.userId === currentUser.id ? 'bg-slate-900 border-amber-500/50' : 'bg-slate-950 border-slate-800'}`}>
-                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-800/50">
-                     <span className="font-bold text-sm text-slate-100">{card.userName}</span>
-                     <span className="text-[9px] text-slate-500 font-mono">{card.weight}kg</span>
+                  <div className="flex justify-between items-start mb-3 pb-2 border-b border-slate-800/50">
+                     <div>
+                       <span className="font-bold text-sm text-slate-100 block">{card.userName}</span>
+                       <span className="text-[9px] text-slate-500 font-mono uppercase mt-0.5 block">{card.category} • {card.weight}kg</span>
+                     </div>
                   </div>
                   
                   {canEdit ? (
