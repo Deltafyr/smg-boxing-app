@@ -21,9 +21,36 @@ export interface User {
   emergencyContact?: string;
   emergencyPhone?: string;
 }
-export interface Announcement {
-  id: string; title: string; content: string; date: string;
-  author: string; priority: 'High' | 'Normal' | 'Low';
+export type EventType = 'Championnat' | 'Coupe' | 'Événement Club';
+export interface CalendarEvent { 
+  id: string; 
+  title: string; 
+  date: string; 
+  type: EventType;
 }
-export interface Poll { id: string; title: string; options: any[]; }
-export interface CalendarEvent { id: string; title: string; date: string; }
+export interface News {
+  id: string;
+  type: 'info' | 'poll';
+  title: string;
+  content: string;
+  date: string;
+  author: string;
+  options?: { text: string; votes: string[] }[];
+}
+export interface Competition {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+}
+export interface FightCard {
+  id: string;
+  compId: string;
+  userId: string;
+  userName: string;
+  weight: string;
+  category: string;
+  area: string;
+  matchNum: string;
+  headgear: 'Rouge' | 'Bleu' | '';
+}

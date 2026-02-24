@@ -1,139 +1,212 @@
-import React, { useState } from 'react';
-import { User } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { User, Competition, FightCard } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Trophy, Swords, Activity, Play, Zap } from 'lucide-react';
+import { Trophy, Plus, ChevronRight, Save, Swords } from 'lucide-react';
 
 interface TournamentProps { 
   currentUser: User; 
 }
 
-interface Match {
-  id: string;
-  round: string;
-  red: any;
-  blue: any;
-  status: 'pending' | 'active' | 'completed';
-  winner: string | null;
-}
-
 const Tournament: React.FC<TournamentProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'BRACKET' | 'TIMELINE'>('BRACKET');
-  const [bracketCreated, setBracketCreated] = useState(false);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  const [view, setView] = useState<'LIST' | 'DETAIL'>('LIST');
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [fightCards, setFightCards] = useState<FightCard[]>([]);
+  const [activeComp, setActiveComp] = useState<Competition | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Forms
+  const [showAddComp, setShowAddForm] = useState(false);
+  const [newCompName, setNewCompName] = useState('');
+  const [newCompDate, setNewCompDate] = useState('');
+  const [newCompLoc, setNewCompLocation] = useState('');
 
-  const generateBracket = () => {
-    const seedPlayers = Array.from({ length: 16 }, (_, i) => ({
-      id: `fighter-${i + 1}`,
-      seed: i + 1,
-      name: `Combattant ${String.fromCharCode(65 + i)}`,
-      club: i % 2 === 0 ? 'SMG Boxing' : 'Rival Gym',
-    }));
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
+  const isCompetitor = currentUser.category === 'Compétiteur';
 
-    const bracketOrder = [1, 16, 8, 9, 5, 12, 4, 13, 3, 14, 6, 11, 7, 10, 2, 15];
-    const firstRoundMatches: Match[] = [];
-    
-    for (let i = 0; i < bracketOrder.length; i += 2) {
-      firstRoundMatches.push({
-        id: `match-1-8-${i/2}`,
-        round: '1/8 Finale',
-        red: seedPlayers.find(p => p.seed === bracketOrder[i]),
-        blue: seedPlayers.find(p => p.seed === bracketOrder[i+1]),
-        status: 'pending',
-        winner: null
-      });
-    }
-    
-    setMatches(firstRoundMatches);
-    setBracketCreated(true);
-    addTimelineEvent('Système', 'Arbre généré. Seeding (1-16) appliqué.', 'system');
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const cSnap = await getDocs(collection(db, 'competitions'));
+      const cList: Competition[] = [];
+      cSnap.forEach(d => cList.push({ id: d.id, ...d.data() } as Competition));
+      setCompetitions(cList);
+
+      const fSnap = await getDocs(collection(db, 'fightCards'));
+      const fList: FightCard[] = [];
+      fSnap.forEach(d => fList.push({ id: d.id, ...d.data() } as FightCard));
+      setFightCards(fList);
+    } catch (e) { console.error(e); }
+    setIsLoading(false);
   };
 
-  const addTimelineEvent = (actor: string, action: string, type: 'info' | 'system' | 'combat' | 'alert' = 'info') => {
-    const newEvent = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      actor,
-      action,
-      type
-    };
-    setTimelineEvents(prev => [newEvent, ...prev].slice(0, 50));
+  const handleCreateComp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompName || !newCompDate) return;
+    setIsLoading(true);
+    try {
+      const nc = { name: newCompName, date: newCompDate, location: newCompLoc };
+      const docRef = await addDoc(collection(db, 'competitions'), nc);
+      setCompetitions([...competitions, { id: docRef.id, ...nc }]);
+      setShowAddForm(false); setNewCompName(''); setNewCompDate(''); setNewCompLocation('');
+    } catch (e) { alert('Erreur création'); }
+    setIsLoading(false);
   };
 
-  const simulateCombatStart = (matchId: string) => {
-    const match = matches.find(m => m.id === matchId);
-    if(!match) return;
-    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: 'active' } : m));
-    addTimelineEvent('Arbitre', `Début du combat : ${match.red.name} vs ${match.blue.name}`, 'combat');
+  const openComp = (comp: Competition) => {
+    setActiveComp(comp);
+    setView('DETAIL');
   };
 
-  return (
-    <div className="p-4 pb-24 h-full flex flex-col max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+  const handleRegisterMe = async () => {
+    if (!activeComp || !isCompetitor) return;
+    setIsLoading(true);
+    try {
+      const newCard: any = {
+        compId: activeComp.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        weight: currentUser.weight || 'Inconnu',
+        category: currentUser.category,
+        area: '', matchNum: '', headgear: ''
+      };
+      const docRef = await addDoc(collection(db, 'fightCards'), newCard);
+      setFightCards([...fightCards, { id: docRef.id, ...newCard }]);
+    } catch (e) { alert('Erreur inscription'); }
+    setIsLoading(false);
+  };
+
+  const handleUpdateCard = async (cardId: string, field: string, value: string) => {
+    const card = fightCards.find(c => c.id === cardId);
+    if (!card) return;
+    try {
+      await updateDoc(doc(db, 'fightCards', cardId), { [field]: value });
+      setFightCards(fightCards.map(c => c.id === cardId ? { ...c, [field]: value } : c));
+    } catch (e) { alert('Erreur modif'); }
+  };
+
+  // Vues conditionnelles
+  if (view === 'DETAIL' && activeComp) {
+    const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
+    const amIRegistered = compCards.some(fc => fc.userId === currentUser.id);
+
+    return (
+      <div className="p-4 pb-24 max-w-lg mx-auto space-y-6">
+        <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase">&larr; Retour aux tournois</button>
+        <div className="text-center bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl">
+           <Trophy className="text-amber-500 mx-auto mb-2" size={32} />
+           <h2 className="text-xl font-black text-white italic uppercase">{activeComp.name}</h2>
+           <p className="text-xs text-slate-400 font-mono mt-1">{new Date(activeComp.date).toLocaleDateString('fr-FR')} - {activeComp.location}</p>
+        </div>
+
+        {isCompetitor && !amIRegistered && (
+          <button onClick={handleRegisterMe} disabled={isLoading} className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-amber-600/20 active:scale-95 transition-all">
+            {isLoading ? 'TRAITEMENT...' : 'S\'inscrire à cette compétition'}
+          </button>
+        )}
+
         <div>
-           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arena</h2>
-           <div className="flex items-center space-x-2 mt-1">
-             <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-             <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Tournoi Actif</span>
-           </div>
-        </div>
-      </div>
-
-      <div className="flex space-x-1 mb-6 bg-slate-950/50 p-1 rounded-2xl border border-slate-800 overflow-x-auto">
-        <button onClick={() => setActiveTab('BRACKET')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'BRACKET' ? 'bg-amber-600 text-white shadow-xl' : 'text-slate-500'}`}>BRACKET & SEEDS</button>
-        <button onClick={() => setActiveTab('TIMELINE')} className={`flex-1 min-w-[80px] py-2.5 text-[9px] font-black rounded-xl transition-all ${activeTab === 'TIMELINE' ? 'bg-cyan-600 text-white shadow-xl' : 'text-slate-500'}`}>TIMELINE ARÈNE</button>
-      </div>
-
-      {activeTab === 'BRACKET' && (
-        <div className="space-y-4 animate-fade-in flex-1 overflow-y-auto">
-          {!bracketCreated ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800">
-              <Trophy size={64} className="mb-4 opacity-50 text-amber-500" />
-              <button onClick={generateBracket} className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-black text-xs transition-all shadow-lg active:scale-95 uppercase tracking-wider flex items-center">
-                <Swords size={16} className="mr-2" /> Initialiser Bracket (16)
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3 pb-10">
-              <div className="flex justify-between items-center px-2 mb-4">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">1/8 de Finale</span>
-                <button onClick={() => {setBracketCreated(false); setMatches([]);}} className="text-[10px] text-rose-500 uppercase font-black hover:underline">Reset</button>
-              </div>
-              {matches.map((match, idx) => (
-                <FuturisticCard key={match.id} borderColor={match.status === 'active' ? 'rose' : 'slate'} className="bg-slate-950/80">
-                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
-                    <span className="text-[10px] font-mono text-slate-500">MATCH #{idx + 1}</span>
-                    {match.status === 'pending' && <button onClick={() => simulateCombatStart(match.id)} className="text-[10px] text-emerald-500 font-black uppercase flex items-center bg-emerald-500/10 px-2 py-1 rounded"><Play size={10} className="mr-1" /> Démarrer</button>}
-                    {match.status === 'active' && <span className="text-[10px] text-rose-500 font-black uppercase flex items-center animate-pulse"><Zap size={10} className="mr-1"/> En cours</span>}
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1 mb-3 flex items-center"><Swords size={12} className="mr-2 text-rose-500"/> Fight Cards ({compCards.length})</h3>
+          {compCards.length === 0 && <p className="text-[10px] text-slate-500 font-mono text-center py-4">Aucun combattant S.M.G engagé pour le moment.</p>}
+          
+          <div className="space-y-3">
+            {compCards.map(card => {
+              const canEdit = isStaff || card.userId === currentUser.id;
+              
+              return (
+                <div key={card.id} className={`p-3 rounded-xl border ${card.userId === currentUser.id ? 'bg-slate-900 border-amber-500/50' : 'bg-slate-950 border-slate-800'}`}>
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-800/50">
+                     <span className="font-bold text-sm text-slate-100">{card.userName}</span>
+                     <span className="text-[9px] text-slate-500 font-mono">{card.weight}kg</span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 rounded-lg bg-red-950/20 border border-red-900/30">
-                      <div className="flex items-center space-x-3"><span className="text-[10px] font-mono font-black text-red-500 w-5 text-center bg-red-500/10 rounded px-1">#{match.red.seed}</span><span className="text-xs font-bold text-white uppercase">{match.red.name}</span></div>
+                  
+                  {canEdit ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Aire/Ring</label>
+                        <input type="text" value={card.area} onChange={e => handleUpdateCard(card.id, 'area', e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white outline-none focus:border-amber-500 text-center" placeholder="Ex: A" />
+                      </div>
+                      <div>
+                        <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">N° Combat</label>
+                        <input type="number" value={card.matchNum} onChange={e => handleUpdateCard(card.id, 'matchNum', e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white outline-none focus:border-amber-500 text-center" placeholder="N°" />
+                      </div>
+                      <div>
+                        <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Coin/Casque</label>
+                        <select value={card.headgear} onChange={e => handleUpdateCard(card.id, 'headgear', e.target.value)} className={`w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs outline-none focus:border-amber-500 ${card.headgear === 'Rouge' ? 'text-rose-500' : card.headgear === 'Bleu' ? 'text-cyan-500' : 'text-slate-400'}`}>
+                          <option value="">-</option>
+                          <option value="Rouge">Rouge</option>
+                          <option value="Bleu">Bleu</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center p-2 rounded-lg bg-blue-950/20 border border-blue-900/30">
-                      <div className="flex items-center space-x-3"><span className="text-[10px] font-mono font-black text-blue-500 w-5 text-center bg-blue-500/10 rounded px-1">#{match.blue.seed}</span><span className="text-xs font-bold text-white uppercase">{match.blue.name}</span></div>
+                  ) : (
+                    <div className="flex justify-around items-center bg-slate-900 p-2 rounded">
+                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Aire</span><span className="text-xs font-bold text-white">{card.area || '-'}</span></div>
+                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Combat</span><span className="text-xs font-bold text-white">{card.matchNum || '-'}</span></div>
+                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Casque</span><span className={`text-xs font-bold ${card.headgear==='Rouge'?'text-rose-500':card.headgear==='Bleu'?'text-cyan-500':'text-white'}`}>{card.headgear || '-'}</span></div>
                     </div>
-                  </div>
-                </FuturisticCard>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'TIMELINE' && (
-        <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-2xl flex flex-col animate-fade-in overflow-hidden">
-          <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between"><h3 className="text-xs font-black text-white flex items-center uppercase tracking-widest"><Activity className="mr-2 text-cyan-500" size={14} /> Flux Live</h3></div>
-          <div className="flex-1 p-4 overflow-y-auto space-y-3">
-            {timelineEvents.map((ev) => (
-              <div key={ev.id} className="flex items-start space-x-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
-                <span className="text-[9px] font-mono text-slate-500 mt-0.5">{ev.timestamp}</span>
-                <div className="flex-1"><span className={`font-black uppercase tracking-wider mr-2 ${ev.type === 'system' ? 'text-amber-500' : 'text-cyan-400'}`}>{ev.actor}</span><span className="text-slate-300">{ev.action}</span></div>
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // VUE LISTE PAR DEFAUT
+  return (
+    <div className="p-4 pb-24 h-full flex flex-col max-w-lg mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2>
+           <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Compétitions S.M.G</span>
+        </div>
+        {isStaff && (
+          <button onClick={() => setShowAddForm(!showAddComp)} className="bg-amber-500/20 text-amber-500 p-2 rounded-xl border border-amber-500/50">
+            <Plus size={20} />
+          </button>
+        )}
+      </div>
+
+      {isStaff && showAddComp && (
+        <FuturisticCard borderColor="slate" className="mb-6 animate-fade-in bg-slate-900/80">
+          <form onSubmit={handleCreateComp} className="space-y-3">
+            <input type="text" placeholder="Nom de l'Open / Championnat..." value={newCompName} onChange={e => setNewCompName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-amber-500" required />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="date" value={newCompDate} onChange={e => setNewCompDate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-amber-500" required />
+              <input type="text" placeholder="Ville..." value={newCompLoc} onChange={e => setNewCompLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-amber-500" required />
+            </div>
+            <button type="submit" disabled={isLoading} className="w-full bg-amber-600 text-slate-950 font-black py-2 rounded text-xs uppercase">Créer le Tournoi</button>
+          </form>
+        </FuturisticCard>
       )}
+
+      <div className="flex-1 overflow-y-auto space-y-3">
+        {isLoading && <p className="text-center text-amber-500 text-xs font-mono animate-pulse">RECHERCHE D'ÉVÉNEMENTS...</p>}
+        {!isLoading && competitions.length === 0 && <p className="text-center text-slate-500 text-xs italic py-10">Aucune compétition active.</p>}
+        
+        {competitions.map(comp => (
+          <FuturisticCard key={comp.id} borderColor="slate" className="cursor-pointer hover:border-amber-500/50 transition-colors group" >
+            <div onClick={() => openComp(comp)} className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-slate-900 rounded border border-slate-800"><Trophy size={16} className="text-amber-500" /></div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-100">{comp.name}</h4>
+                  <p className="text-[10px] text-slate-500 font-mono">{new Date(comp.date).toLocaleDateString('fr-FR')} • {comp.location}</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-500" />
+            </div>
+          </FuturisticCard>
+        ))}
+      </div>
     </div>
   );
 };
