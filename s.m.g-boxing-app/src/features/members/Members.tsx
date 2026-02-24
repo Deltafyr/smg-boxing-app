@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { User, UserRole } from '../../types';
@@ -10,31 +10,29 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ currentUser }) => {
-  const [memberList, setMemberList] = useState<User>();
+  const [memberList, setMemberList] = useState<User[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const isStaff = currentUser.role === 'Admin' |
-
-| currentUser.role === 'Coach';
+  const isStaff = currentUser.role === 'Admin' || currentUser.role === 'Coach';
 
   useEffect(() => {
     fetchMembersFromFirebase();
-  },);
+  }, []);
 
   const fetchMembersFromFirebase = async () => {
     setIsLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, 'members'));
-      const users: User =;
+      const users: User[] = [];
       querySnapshot.forEach((doc) => {
-        users.push({ id: doc.id,...doc.data() } as User);
+        users.push({ id: doc.id, ...doc.data() } as User);
       });
       const rolePriority: Record<UserRole, number> = { 'Admin': 0, 'Coach': 1, 'Member': 2 };
       users.sort((a, b) => {
-        const prioA = rolePriority[a.role]?? 2;
-        const prioB = rolePriority[b.role]?? 2;
-        if (prioA!== prioB) return prioA - prioB;
+        const prioA = rolePriority[a.role as UserRole] ?? 2;
+        const prioB = rolePriority[b.role as UserRole] ?? 2;
+        if (prioA !== prioB) return prioA - prioB;
         return a.name.localeCompare(b.name);
       });
       setMemberList(users);
@@ -45,13 +43,13 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
     }
   };
 
-  const toggleExpand = (id: string) => setExpandedId(expandedId === id? null : id);
+  const toggleExpand = (id: string) => setExpandedId(expandedId === id ? null : id);
 
   const updateUserInFirebase = async (userId: string, fields: Partial<User>) => {
     try {
       const userRef = doc(db, 'members', userId);
       await updateDoc(userRef, fields);
-      setMemberList(prev => prev.map(u => u.id === userId? {...u,...fields } : u));
+      setMemberList(prev => prev.map(u => u.id === userId ? { ...u, ...fields } : u));
     } catch (error) {
       alert("Échec de la mise à jour.");
     }
@@ -61,7 +59,7 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
     if (confirm('Voulez-vous vraiment supprimer ce membre de la base de données cloud?')) {
       try {
         await deleteDoc(doc(db, 'members', userId));
-        setMemberList(prev => prev.filter(u => u.id!== userId));
+        setMemberList(prev => prev.filter(u => u.id !== userId));
       } catch (error) {
         alert("Échec de la suppression.");
       }
@@ -92,10 +90,10 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
 
       <div className="space-y-4">
         {memberList.map((user) => (
-          <FuturisticCard key={user.id} className="transition-all duration-300" borderColor={user.role === 'Admin'? 'rose' : user.role === 'Coach'? 'cyan' : 'slate'}>
+          <FuturisticCard key={user.id} className="transition-all duration-300" borderColor={user.role === 'Admin' ? 'rose' : user.role === 'Coach' ? 'cyan' : 'slate'}>
             <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(user.id)}>
               <div className="flex items-center space-x-3">
-                 <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg relative ${user.role === 'Admin'? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' : user.role === 'Coach'? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                 <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg relative ${user.role === 'Admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' : user.role === 'Coach' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
                     {user.name.charAt(0)}
                     {user.role === 'Admin' && <Shield size={12} className="absolute -top-1 -right-1 text-rose-500 fill-rose-500/20" />}
                     {user.role === 'Coach' && <Shield size={12} className="absolute -top-1 -right-1 text-cyan-500 fill-cyan-500/20" />}
@@ -103,14 +101,12 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
                  <div>
                    <h3 className="font-bold text-slate-100 text-sm tracking-tight">{user.name}</h3>
                    <div className="flex items-center space-x-2 mt-0.5">
-                     <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${user.role === 'Admin'? 'border-rose-500/50 text-rose-500' : user.role === 'Coach'? 'border-cyan-500/50 text-cyan-500' : 'border-slate-700 text-slate-500'}`}>{user.role.toUpperCase()}</span>
-                     <span className="text-[10px] text-slate-500 font-medium">{user.category} • {user.age |
-
-| '?'} ans</span>
+                     <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${user.role === 'Admin' ? 'border-rose-500/50 text-rose-500' : user.role === 'Coach' ? 'border-cyan-500/50 text-cyan-500' : 'border-slate-700 text-slate-500'}`}>{user.role.toUpperCase()}</span>
+                     <span className="text-[10px] text-slate-500 font-medium">{user.category} • {user.age || '?'} ans</span>
                    </div>
                  </div>
               </div>
-              <div className="text-slate-600">{expandedId === user.id? <ChevronUp size={20} /> : <ChevronDown size={20} />}</div>
+              <div className="text-slate-600">{expandedId === user.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</div>
             </div>
 
             {expandedId === user.id && (
@@ -135,7 +131,7 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-slate-900">
                       <span className="text-[10px] text-slate-500 font-mono">{user.email}</span>
-                      {currentUser.role === 'Admin' && user.id!== currentUser.id && <button onClick={() => deleteUserFromFirebase(user.id)} className="text-rose-500 hover:text-rose-400 transition-colors p-1"><Trash2 size={16} /></button>}
+                      {currentUser.role === 'Admin' && user.id !== currentUser.id && <button onClick={() => deleteUserFromFirebase(user.id)} className="text-rose-500 hover:text-rose-400 transition-colors p-1"><Trash2 size={16} /></button>}
                     </div>
                   </div>
                 )}
@@ -143,7 +139,7 @@ const Members: React.FC<MembersProps> = ({ currentUser }) => {
             )}
           </FuturisticCard>
         ))}
-        {memberList.length === 0 &&!isLoading && <div className="text-center py-10 text-slate-500 text-sm italic">Aucun membre.</div>}
+        {memberList.length === 0 && !isLoading && <div className="text-center py-10 text-slate-500 text-sm italic">Aucun membre.</div>}
       </div>
     </div>
   );

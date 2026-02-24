@@ -1,10 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CalendarEvent } from '../../types';
-import FuturisticCard from '../../components/ui/FuturisticCard';
-import { MapPin } from 'lucide-react';
 
 const CalendarPage: React.FC = () => {
-  const [events, setEvents] = useState<CalendarEvent>();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   return (
     <div className="p-4 pb-24 max-w-lg mx-auto">
       <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-8">Agenda Club</h2>

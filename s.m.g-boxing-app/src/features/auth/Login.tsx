@@ -1,10 +1,10 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { AppRoute, User } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Lock, Mail, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -14,7 +14,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const = useState(true);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,7 +26,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate }) => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userDocSnap = await getDoc(doc(db, 'members', userCredential.user.uid));
       if (userDocSnap.exists()) {
-        const userData = { id: userCredential.user.uid,...userDocSnap.data() } as User;
+        const userData = { id: userCredential.user.uid, ...userDocSnap.data() } as User;
         if (rememberMe) localStorage.setItem('smg_current_user', JSON.stringify(userData));
         onLogin(userData);
       } else {

@@ -3,7 +3,7 @@ import { useSystemStore } from '../../store/useSystemStore';
 import { Settings, Save } from 'lucide-react';
 
 export default function SystemDashboard() {
-  const = useState('');
+  const [tokenInput, setTokenInput] = useState('');
   const { tokenStatus, isProcessing, consoleOutput, callCortex, setConsoleOutput } = useSystemStore();
 
   const handleSaveToken = async () => {
@@ -24,7 +24,7 @@ export default function SystemDashboard() {
       </h1>
       <div className="bg-[#1e1e1e] rounded-xl p-6 border border-neutral-800 shadow-2xl relative overflow-hidden">
         <input type="text" value={tokenInput} onChange={e => setTokenInput(e.target.value)} className="w-full bg-[#111] border border-neutral-700 p-3 rounded-lg text-white text-xs font-mono mb-4 outline-none focus:border-[#d32f2f]" placeholder="Token Bearer ici..." />
-        <button onClick={handleSaveToken} disabled={isProcessing ||!tokenInput} className="w-full bg-gradient-to-br from-[#d32f2f] to-[#8b0000] text-white py-3 rounded-lg font-black uppercase italic text-xs shadow-lg active:scale-95 flex justify-center items-center">
+        <button onClick={handleSaveToken} disabled={isProcessing || !tokenInput} className="w-full bg-gradient-to-br from-[#d32f2f] to-[#8b0000] text-white py-3 rounded-lg font-black uppercase italic text-xs shadow-lg active:scale-95 flex justify-center items-center">
           <Save size={16} className="mr-2" /> ENREGISTRER
         </button>
         {consoleOutput && <div className="mt-6 p-4 bg-black rounded-lg border border-neutral-800 text-[10px] font-mono text-[#00E676] overflow-auto max-h-40 whitespace-pre-wrap">{consoleOutput}</div>}

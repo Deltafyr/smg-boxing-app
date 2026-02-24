@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AppRoute, Announcement, User, Poll } from '../types';
 import FuturisticCard from '../components/ui/FuturisticCard';
-import { Timer, Trophy, Calendar, AlertCircle, Megaphone } from 'lucide-react';
+import { Timer, Trophy, Calendar } from 'lucide-react';
 
 interface HomeProps {
   onNavigate: (route: AppRoute) => void;
-  announcements: Announcement;
+  announcements: Announcement[];
   currentUser: User | null;
 }
 

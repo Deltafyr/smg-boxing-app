@@ -1,34 +1,31 @@
-﻿import React, { useState, useEffect } from 'react';
-import { User, Announcement, Poll, PollOption } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { User, Announcement, Poll } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Shield, Megaphone, Users, Trash2, CheckSquare, Plus, Activity, Calendar, UserCog, Smartphone } from 'lucide-react';
+import { Shield, Megaphone, Users, CheckSquare } from 'lucide-react';
 
 interface AdminProps {
   currentUser: User;
-  announcements: Announcement;
+  announcements: Announcement[];
   onAddAnnouncement: (ann: Announcement) => void;
 }
 
 const Admin: React.FC<AdminProps> = ({ currentUser, announcements, onAddAnnouncement }) => {
-  const = useState<'ANNOUNCEMENTS' | 'USERS' | 'POLLS'>('ANNOUNCEMENTS');
-  const = useState('');
+  const [activeTab, setActiveTab] = useState<'ANNOUNCEMENTS' | 'USERS' | 'POLLS'>('ANNOUNCEMENTS');
+  const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [users, setUsers] = useState<User>();
-  const [polls, setPolls] = useState<Poll>();
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
-  const = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [polls, setPolls] = useState<Poll[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('smg_users');
     if (stored) setUsers(JSON.parse(stored));
     const storedPolls = localStorage.getItem('smg_polls');
     if (storedPolls) setPolls(JSON.parse(storedPolls));
-  },);
+  }, []);
 
   const handlePostAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle ||!newContent) return;
+    if (!newTitle || !newContent) return;
     const newAnn: Announcement = {
       id: Date.now().toString(),
       title: newTitle,
