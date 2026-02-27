@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 interface SystemState { tokenStatus: string; isProcessing: boolean; consoleOutput: string; callCortex: () => Promise<void>; setConsoleOutput: (msg: string) => void; }
 export const useSystemStore = create<SystemState>((set) => ({
   tokenStatus: 'DISCONNECTED', isProcessing: false, consoleOutput: '',

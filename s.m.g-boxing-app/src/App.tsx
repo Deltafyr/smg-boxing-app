@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon, Users, Trophy, ShieldAlert } from 'lucide-react';
 import Login from './features/auth/Login';
