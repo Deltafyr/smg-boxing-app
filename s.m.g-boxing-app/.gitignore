@@ -1,0 +1,26 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dépendances (LA CAUSE DE TA LOURDEUR GITHUB)
+node_modules/
+dist/
+dist-ssr/
+build/
+
+# Fichiers système et IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Fichiers d'environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Backups et Zips
+BackupV1/
+*.zip
