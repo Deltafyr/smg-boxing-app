@@ -46,10 +46,7 @@ export default function Members({ currentUser }: { currentUser: User }) {
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    if (userId === currentUser.id) {
-      alert("Erreur: Vous ne pouvez pas modifier votre propre niveau d'accès.");
-      return;
-    }
+    if (!confirm(`Promouvoir ce membre au rang de ${newRole} ?`)) return;
     
     try {
       await updateDoc(doc(db, 'members', userId), { role: newRole });
@@ -161,21 +158,18 @@ export default function Members({ currentUser }: { currentUser: User }) {
                <div className="flex space-x-2 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
                  <button 
                    onClick={() => handleRoleChange(selectedMember.id, 'Membre')}
-                   disabled={selectedMember.id === currentUser.id}
                    className={`flex-1 py-2.5 rounded shadow-sm text-xs font-black uppercase tracking-widest transition-all ${selectedMember.role === 'Membre' ? 'bg-cyan-600 text-white' : 'bg-transparent text-slate-500 hover:text-white hover:bg-slate-800'}`}
                  >Membre</button>
                  <button 
                    onClick={() => handleRoleChange(selectedMember.id, 'Coach')}
-                   disabled={selectedMember.id === currentUser.id}
                    className={`flex-1 py-2.5 rounded shadow-sm text-xs font-black uppercase tracking-widest transition-all ${selectedMember.role === 'Coach' ? 'bg-amber-600 text-white' : 'bg-transparent text-slate-500 hover:text-white hover:bg-slate-800'}`}
                  >Coach</button>
                  <button 
                    onClick={() => handleRoleChange(selectedMember.id, 'Admin')}
-                   disabled={selectedMember.id === currentUser.id || !isAdmin}
+                   disabled={!isAdmin}
                    className={`flex-1 py-2.5 rounded shadow-sm text-xs font-black uppercase tracking-widest transition-all ${selectedMember.role === 'Admin' ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 hover:text-white hover:bg-slate-800'} ${!isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`}
                  >Admin</button>
                </div>
-               {selectedMember.id === currentUser.id && <p className="text-[9px] text-rose-500 mt-2 text-center font-mono">Impossible de modifier ses propres droits.</p>}
                {!isAdmin && <p className="text-[9px] text-amber-500 mt-2 text-center font-mono">Seul un Admin peut accorder le grade Admin.</p>}
             </div>
           )}
