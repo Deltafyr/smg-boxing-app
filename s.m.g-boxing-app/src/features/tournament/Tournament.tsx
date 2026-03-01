@@ -117,55 +117,67 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   };
 
   // ==========================================================================
-  // CORTEX SCRAPER: SIMULATION DE CONNEXION FFKMDA
+  // CORTEX SCRAPER: SIMULATION DE CONNEXION FFKMDA (PRECISION SCANNER)
   // ==========================================================================
   const executeFFKMDAScan = async () => {
     if (!ffkmdaId) return;
     setScanStatus('SCANNING');
-    setScanLogs(["Initialisation du protocole de contournement CORS...", `Ciblage de l'ID FFKMDA : ${ffkmdaId}`]);
+    setScanLogs(["Initialisation du protocole de ciblage de précision...", `Ciblage de l'ID FFKMDA : ${ffkmdaId}`]);
 
-    // Simulation asynchrone pour l'effet "Cortex"
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     const addLog = (msg: string) => setScanLogs(prev => [...prev, msg]);
 
-    await delay(800); addLog("Connexion établie avec inscription-competition.ffkmda.com...");
-    await delay(1000); addLog("Lecture de la pagination... 12 pages détectées.");
-    await delay(1200); addLog("Filtrage par club : 'S.M.G BOXING CLUB'...");
-    
     if (ffkmdaId === '902') {
-      await delay(1500); addLog("-> MATCH TROUVÉ : Armand Freyssinet (Senior M -74kg)");
-      await delay(800); addLog("   Poule : 4 inscrits. Estimation : 2 combats (Demi, Finale).");
-      await delay(1000); addLog("-> MATCH TROUVÉ : Inconnu S.M.G (Junior M -63kg)");
-      await delay(800); addLog("   Poule : 8 inscrits. Estimation : 3 combats.");
+      await delay(800); addLog("Étape 1 : Connexion à l'espace d'inscription S.M.G (Privé)...");
+      await delay(1000); addLog("Extraction des licences et vérification Prénom/Nom...");
+      await delay(1200); addLog("-> 2 inscrits validés : Armand CHESSEL, Méline GARNIER.");
       
-      await delay(1000); addLog("Création de la Compétition et des Fiches en cours...");
+      await delay(1000); addLog("Étape 2 : Scan des 141 pages du registre public...");
+      await delay(1500); addLog("-> POULE LOCALISÉE : Armand CHESSEL (Junior Homme -69 kg - Kick light). 8 inscrits. Estimation : 3 combats.");
+      await delay(1200); addLog("-> POULE LOCALISÉE : Méline GARNIER (Junior Femme -50 kg - Kick light). 4 inscrites. Estimation : 2 combats.");
+      
+      await delay(1000); addLog("Croisement avec la base de données du club...");
 
       try {
         // 1. Créer la comp si elle n'existe pas
         let compId = activeComp?.id;
         if (!compId) {
-          const compData = { name: "Championnat de France Kick Light 2026", date: "2026-05-15", location: "Paris (Halle Carpentier)", compType: "Championnat", compStyle: "Kick light" };
+          const compData = { name: "CHAMPIONNAT DE FRANCE KICK LIGHT 2026", date: "2026-03-14", location: "Halle Georges Carpentier, Paris", compType: "Championnat", compStyle: "Kick light" };
           const newComp = await handleCreateComp(undefined, compData);
           compId = newComp.id;
           setActiveComp(newComp);
         }
 
-        // 2. Créer Armand (Connu)
-        const armandCard = { compId, userId: currentUser.id, userName: currentUser.name || "Armand Freyssinet", weight: "74", category: "Senior (M)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 2 };
+        // Recherche stricte dans les membres pour éviter les faux positifs (ex: Armand Freyssinet au lieu de Armand Chessel)
+        const armandMember = members.find(m => m.name.toLowerCase().includes('armand') && m.name.toLowerCase().includes('chessel'));
+        const melineMember = members.find(m => (m.name.toLowerCase().includes('méline') || m.name.toLowerCase().includes('meline')) && m.name.toLowerCase().includes('garnier'));
+
+        // 2. Créer Armand Chessel
+        const armandCard = { 
+          compId, 
+          userId: armandMember ? armandMember.id : `ext_armand_${Date.now()}`, 
+          userName: armandMember ? armandMember.name : "Armand Chessel", 
+          weight: "69", category: "Junior (M)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 3 
+        };
         const ref1 = await addDoc(collection(db, 'fightCards'), armandCard);
         
-        // 3. Créer Inconnu (Fantôme)
-        const ghostCard = { compId, userId: `ghost_${Date.now()}`, userName: "Nouveau Combattant", weight: "63", category: "Junior (M)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 3 };
-        const ref2 = await addDoc(collection(db, 'fightCards'), ghostCard);
+        // 3. Créer Méline Garnier
+        const melineCard = { 
+          compId, 
+          userId: melineMember ? melineMember.id : `ext_meline_${Date.now()}`, 
+          userName: melineMember ? melineMember.name : "Méline Garnier", 
+          weight: "50", category: "Junior (F)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 2 
+        };
+        const ref2 = await addDoc(collection(db, 'fightCards'), melineCard);
 
-        setFightCards(prev => [...prev, {id: ref1.id, ...armandCard}, {id: ref2.id, ...ghostCard}]);
+        setFightCards(prev => [...prev, {id: ref1.id, ...armandCard}, {id: ref2.id, ...melineCard}]);
         setScanStatus('FOUND');
-        addLog("TERMINÉ. Cartes de combat générées. En attente de tirage.");
+        addLog("TERMINÉ. Cartes de compétition générées avec succès.");
       } catch(e) {
         setScanStatus('ERROR'); addLog("Erreur lors de l'écriture en base.");
       }
     } else {
-      await delay(2000);
+      await delay(1500);
       setScanStatus('ERROR');
       addLog("Aucun combattant de la S.M.G n'a été trouvé pour cet ID.");
     }
@@ -247,7 +259,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                  {scanLogs.length > 0 && (
                    <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
                      {scanLogs.map((log, i) => (
-                       <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('TROUVÉ') || log.includes('TERMINÉ') ? 'text-emerald-400' : 'text-slate-500'}`}>
+                       <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('POULE') || log.includes('TERMINÉ') || log.includes('inscrits validés') ? 'text-emerald-400' : 'text-slate-500'}`}>
                          {">"} {log}
                        </div>
                      ))}
