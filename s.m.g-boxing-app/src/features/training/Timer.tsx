@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Volume2, VolumeX, Plus, X, Swords, Activity, Zap, Target } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, VolumeX, Plus, X, Swords, Activity, Zap, Target, Clock } from 'lucide-react';
 
 // ============================================================================
 // TYPES ET CONFIGURATIONS PREDEFINIES
@@ -14,7 +14,7 @@ interface TimerPreset {
   transitionTime: number;
   rounds: number;
   category: 'ASSAUT' | 'TECHNIQUE' | 'CARDIO' | 'SPECIAL';
-  hasTick?: boolean; // Pour le challenge 100 kicks
+  hasTick?: boolean;
   tickIntervalMs?: number;
 }
 
@@ -61,8 +61,8 @@ const speakCombative = (text: string, isMuted: boolean) => {
   if (isMuted) return;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'fr-FR';
-  utterance.pitch = 0.8; // Voix plus grave/autoritaire
-  utterance.rate = 1.2; // Rythme martial
+  utterance.pitch = 0.8;
+  utterance.rate = 1.2;
   window.speechSynthesis.speak(utterance);
 };
 
@@ -74,12 +74,30 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
   const [config, setConfig] = useState<TimerPreset>(PRESETS[0]);
   
   const [phase, setPhase] = useState<TimerPhase>('PREP');
-  const [timeLeft, setTimeLeft] = useState(10); // 10s prep
+  const [timeLeft, setTimeLeft] = useState(10);
   const [currentRound, setCurrentRound] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   
+  // États pour le Suivi Temporel (ETA)
+  const [totalTimeLeft, setTotalTimeLeft] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fonction de calcul de la durée totale estimée
+  const computeTotalTime = useCallback((cfg: TimerPreset) => {
+    const prepTime = 10;
+    const workTotal = cfg.rounds * cfg.workTime;
+    const breaksTotal = (cfg.rounds > 1 ? cfg.rounds - 1 : 0) * (cfg.transitionTime + cfg.restTime);
+    return prepTime + workTotal + breaksTotal;
+  }, []);
+
+  // Maintien de l'horloge temps réel
+  useEffect(() => {
+    const clock = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(clock);
+  }, []);
 
   // Formatter le temps (MM:SS)
   const formatTime = (seconds: number) => {
@@ -98,18 +116,31 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
     }
   };
 
-  const resetTimer = useCallback(() => {
+  const resetTimer = useCallback((cfg = config) => {
     setIsRunning(false);
     setPhase('PREP');
     setTimeLeft(10);
     setCurrentRound(1);
+    setTotalTimeLeft(computeTotalTime(cfg));
     if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
+  }, [config, computeTotalTime]);
+
+  // Initialisation au montage
+  useEffect(() => {
+    setTotalTimeLeft(computeTotalTime(config));
   }, []);
 
   const handlePresetChange = (presetId: string) => {
     const newConfig = PRESETS.find(p => p.id === presetId) || PRESETS[0];
     setConfig(newConfig);
-    resetTimer();
+    resetTimer(newConfig);
+  };
+
+  const updateRounds = (delta: number) => {
+    const newRounds = Math.max(1, config.rounds + delta);
+    const newConfig = { ...config, rounds: newRounds };
+    setConfig(newConfig);
+    resetTimer(newConfig);
   };
 
   const toggleTimer = () => {
@@ -126,15 +157,16 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 
     if (isRunning) {
       interval = setInterval(() => {
+        // Décrémenter la durée totale restante
+        setTotalTimeLeft(prev => prev > 0 ? prev - 1 : 0);
+        
         setTimeLeft((prev) => {
           if (prev > 1) {
-            // Annonces vocales de fin de phase
             if (prev === 11 && phase === 'WORK') speakCombative("Dix secondes", isMuted);
-            if (prev === 4 && !isMuted) playTone(440, 'sine', 0.2); // Bip d'avertissement 3..2..1
+            if (prev === 4 && !isMuted) playTone(440, 'sine', 0.2);
             return prev - 1;
           }
 
-          // TRANSITIONS DE PHASES
           if (phase === 'PREP') {
             setPhase('WORK');
             if (!isMuted) { playTone(880, 'square', 0.8); speakCombative("Combat !", false); }
@@ -202,11 +234,11 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
     return () => clearInterval(interval);
   }, [isRunning, phase, currentRound, config, isMuted]);
 
-  // Gestion du Métronome (Tick) pour le Challenge 100 Kicks
+  // Gestion du Métronome (Tick)
   useEffect(() => {
     if (isRunning && phase === 'WORK' && config.hasTick && config.tickIntervalMs) {
       tickIntervalRef.current = setInterval(() => {
-        if (!isMuted) playTone(1200, 'triangle', 0.05, 0.3); // Tick court et sec
+        if (!isMuted) playTone(1200, 'triangle', 0.05, 0.3);
       }, config.tickIntervalMs);
     } else {
       if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
@@ -217,7 +249,6 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
     };
   }, [isRunning, phase, config, isMuted]);
 
-  // Déterminer la couleur de la carte selon la phase
   const getPhaseColor = () => {
     switch (phase) {
       case 'PREP': return 'border-amber-500 shadow-[0_0_30px_-5px_rgba(245,158,11,0.3)] text-amber-500';
@@ -238,6 +269,8 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
       case 'FINISHED': return 'ENTRAÎNEMENT TERMINÉ';
     }
   };
+
+  const estimatedEndTime = new Date(currentTime.getTime() + totalTimeLeft * 1000);
 
   return (
     <div className={`relative bg-slate-900/80 backdrop-blur-md rounded-3xl p-4 sm:p-6 border-2 transition-all duration-300 ${getPhaseColor()} flex flex-col h-full`}>
@@ -264,22 +297,29 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
         </div>
       </div>
 
-      {/* SELECTION PRESET */}
+      {/* SELECTION PRESET & CUSTOM ROUNDS */}
       {!isRunning && phase === 'PREP' && (
-        <select value={config.id} onChange={(e) => handlePresetChange(e.target.value)}
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-cyan-500 mb-4 appearance-none text-center">
-          {PRESETS.filter(p => p.category === activeCategory).map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+        <div className="flex space-x-2 mb-4">
+          <select value={config.id} onChange={(e) => handlePresetChange(e.target.value)}
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-cyan-500 appearance-none text-center truncate">
+            {PRESETS.filter(p => p.category === activeCategory).map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-1 sm:px-2 shadow-inner">
+            <button onClick={() => updateRounds(-1)} className="p-2 text-slate-500 hover:text-white font-black hover:scale-110 active:scale-95 transition-all">-</button>
+            <span className="text-white font-black px-1 sm:px-2 text-xs sm:text-sm w-12 sm:w-16 text-center">{config.rounds} Rnd</span>
+            <button onClick={() => updateRounds(1)} className="p-2 text-slate-500 hover:text-white font-black hover:scale-110 active:scale-95 transition-all">+</button>
+          </div>
+        </div>
       )}
 
       {/* AFFICHAGE CHRONO CENTRAL */}
       <div className="flex-1 flex flex-col items-center justify-center py-4">
         <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] mb-2">{getPhaseText()}</h3>
         
-        {/* Cercles de Rounds */}
-        <div className="flex space-x-1.5 mb-6 flex-wrap justify-center px-4">
+        {/* Cercles de Rounds avec flex-wrap pour les grands nombres */}
+        <div className="flex gap-1.5 mb-6 flex-wrap justify-center px-4 max-w-full">
           {Array.from({ length: config.rounds }).map((_, i) => (
             <div key={i} className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 ${i + 1 < currentRound ? 'bg-emerald-500 border-emerald-500' : i + 1 === currentRound && phase !== 'FINISHED' ? 'bg-current border-current animate-pulse' : 'border-slate-700 bg-transparent'}`} />
           ))}
@@ -298,15 +338,32 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
         </div>
       </div>
 
-      {/* CONTROLES */}
-      <div className="grid grid-cols-3 gap-2 mt-4">
-        <button onClick={toggleTimer} className={`col-span-2 py-4 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center transition-all ${isRunning ? 'bg-amber-500/20 text-amber-500 border border-amber-500/50 hover:bg-amber-500/30' : phase === 'FINISHED' ? 'bg-slate-800 text-slate-500' : 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-600/30'}`} disabled={phase === 'FINISHED'}>
-          {isRunning ? <><Pause size={18} className="mr-2"/> Pause</> : <><Play size={18} className="mr-2"/> Lancer</>}
-        </button>
-        <button onClick={resetTimer} className="py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all">
-          <RotateCcw size={18} />
-        </button>
+      {/* CONTROLES ET ETA */}
+      <div className="mt-4">
+        <div className="grid grid-cols-3 gap-2">
+          <button onClick={toggleTimer} className={`col-span-2 py-4 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center transition-all ${isRunning ? 'bg-amber-500/20 text-amber-500 border border-amber-500/50 hover:bg-amber-500/30' : phase === 'FINISHED' ? 'bg-slate-800 text-slate-500' : 'bg-rose-600 text-white hover:bg-rose-500 shadow-lg shadow-rose-600/30'}`} disabled={phase === 'FINISHED'}>
+            {isRunning ? <><Pause size={18} className="mr-2"/> Pause</> : <><Play size={18} className="mr-2"/> Lancer</>}
+          </button>
+          <button onClick={() => resetTimer(config)} className="py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center transition-all">
+            <RotateCcw size={18} />
+          </button>
+        </div>
+        
+        {/* HUD TEMPOREL */}
+        <div className="mt-3 bg-slate-950/60 border border-slate-800/50 rounded-xl p-2.5 flex items-center justify-between text-[10px] sm:text-xs font-mono uppercase tracking-wider">
+          <div className="flex items-center text-slate-400">
+            <Clock size={12} className="mr-1.5" />
+            {currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+          <div className="flex items-center">
+            <span className="text-slate-500 mr-2 hidden sm:inline">DURÉE: {formatTime(totalTimeLeft)}</span>
+            <span className="text-amber-500 font-bold drop-shadow-[0_0_5px_rgba(245,158,11,0.5)] flex items-center">
+              FIN: {estimatedEndTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        </div>
       </div>
+      
     </div>
   );
 };
@@ -315,7 +372,7 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 // PAGE PRINCIPALE : GESTION DUAL-CORE
 // ============================================================================
 export default function TimerPage() {
-  const [timers, setTimers] = useState<string[]>(['t1']); // Array d'IDs pour forcer le render
+  const [timers, setTimers] = useState<string[]>(['t1']);
 
   const addTimer = () => {
     if (timers.length < 2) setTimers([...timers, `t${Date.now()}`]);
