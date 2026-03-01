@@ -184,35 +184,11 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     } catch(e) {}
   };
 
-  const handleArchivePalmares = async (compCards: any[]) => {
-    if(!confirm("Clôturer la compétition et archiver définitivement les médailles dans le Palmarès des combattants ?")) return;
-    setIsArchiving(true);
-    try {
-      for(const c of compCards) {
-        if(c.medal && c.medal !== '') {
-          await addDoc(collection(db, 'palmares'), {
-            userId: c.userId,
-            userName: c.userName,
-            competitionName: activeComp?.name,
-            date: activeComp?.date,
-            medal: c.medal
-          });
-        }
-      }
-      alert("Palmarès archivé avec succès ! Les titres apparaîtront dans les espaces privés.");
-    } catch(e) {
-      alert("Erreur lors de l'archivage.");
-    }
-    setIsArchiving(false);
-  };
-
   if (view === 'DETAIL' && activeComp) {
     const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
     
-    // Extraction pour Timeline
     const allMatches = compCards.flatMap(c => (c.matches || []).map((m: any) => ({ ...m, fighterName: c.userName, fighterCat: c.category, cardId: c.id })));
     
-    // GROUPEMENT PAR NUMÉRO DE COMBAT POUR ALERTE SIMULTANÉE
     const groupedMatches = allMatches.reduce((acc, m) => {
       const key = (m.matchNum && m.matchNum !== '') ? m.matchNum : 'TBD';
       if (!acc[key]) acc[key] = [];
@@ -226,8 +202,9 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
       return parseInt(a) - parseInt(b);
     }).map(k => ({ matchNum: k, matches: groupedMatches[k] }));
 
+    // FORÇAGE CSS BRUT DU DEFILEMENT (INFALLIBLE)
     return (
-      <div className="w-full min-h-screen p-4 pb-32">
+      <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
         <div className="max-w-lg mx-auto space-y-6">
           <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour aux compétitions</button>
           
@@ -250,13 +227,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                  <input type="text" value={activeComp.name} onChange={e=>setActiveComp({...activeComp, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Nom..." />
                  <div className="grid grid-cols-2 gap-2"><input type="date" value={activeComp.date} onChange={e=>setActiveComp({...activeComp, date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" /><input type="text" value={activeComp.location} onChange={e=>setActiveComp({...activeComp, location: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Ville" /></div>
                </div>
-             )}
-
-             {/* BOUTON D'ARCHIVAGE (FIN DE TOURNOI) */}
-             {isStaff && compCards.length > 0 && (
-               <button onClick={() => handleArchivePalmares(compCards)} disabled={isArchiving} className="w-full mt-4 bg-amber-600/20 border border-amber-500/50 text-amber-500 py-2 rounded-lg text-xs font-black uppercase flex items-center justify-center hover:bg-amber-600/30 transition-colors">
-                 {isArchiving ? <Activity size={16} className="animate-spin mr-2"/> : <Archive size={16} className="mr-2"/>} Clôturer & Archiver le Palmarès
-               </button>
              )}
           </div>
 
@@ -298,7 +268,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                 </div>
               )}
 
-              {/* LISTE DES FICHES EN ACCORDION */}
               {compCards.map(card => {
                 const canEdit = isStaff;
                 const matches = card.matches && card.matches.length > 0 ? card.matches : [{ id: `legacy_${Date.now()}`, title: 'Combat Unique', area: '', matchNum: '', headgear: '', result: 'En attente' }];
@@ -315,7 +284,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                       <div>
                         <div className="flex items-center">
                           <h4 className="font-black text-lg text-white uppercase">{card.userName}</h4>
-                          {card.medal && card.medal !== '' && <Medal size={14} className={`ml-2 ${card.medal === 'Or' ? 'text-yellow-400' : card.medal === 'Argent' ? 'text-slate-300' : 'text-amber-700'}`}/>}
                         </div>
                         <p className="text-[10px] text-amber-500 font-mono font-bold uppercase">{card.category} • {card.weight}kg</p>
                       </div>
@@ -324,19 +292,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
                     {isExpanded && (
                       <div className="p-3 space-y-3 bg-slate-900/80 border-t border-slate-800">
-                        {/* CHAMP DE RÉCOMPENSE FINALE */}
-                        {canEdit && (
-                          <div className="bg-slate-950 border border-slate-700 p-3 rounded-lg mb-4">
-                             <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest block mb-2 flex items-center"><Trophy size={12} className="mr-2"/> Résultat Final</label>
-                             <select value={card.medal || ''} onChange={e => handleUpdateCardBase(card.id, { medal: e.target.value })} className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-xs font-bold text-white outline-none focus:border-amber-500">
-                               <option value="">Aucune médaille</option>
-                               <option value="Or">🥇 Médaille d'Or (Vainqueur)</option>
-                               <option value="Argent">🥈 Médaille d'Argent (Finaliste)</option>
-                               <option value="Bronze">🥉 Médaille de Bronze</option>
-                             </select>
-                          </div>
-                        )}
-
                         {matches.map((m: any) => {
                           return (
                             <div key={m.id} className="p-3 rounded-lg border bg-slate-950 border-slate-700 relative">
@@ -438,13 +393,14 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     );
   }
 
+  // VUE LISTE AVEC CSS BRUT POUR LE SCROLL
   return (
-    <div className="w-full min-h-screen p-4 pb-32">
+    <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2><span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Circuit de Compétition</span></div>
         </div>
-        <div className="space-y-3 pb-10">
+        <div className="space-y-3">
           {competitions.map(comp => (
             <button key={comp.id} onClick={() => { setActiveComp(comp); setView('DETAIL'); }} className="w-full text-left">
               <FuturisticCard borderColor="amber" className="hover:border-amber-500/50 transition-colors">
