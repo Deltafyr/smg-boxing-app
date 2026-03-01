@@ -10,7 +10,6 @@ export default function Dashboard(props: any) {
   const [events, setEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
-  // PALMARES DUR (Sauvegardé)
   const palmaresData = [
     { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Méline', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
     { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Pauline', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
@@ -58,7 +57,6 @@ export default function Dashboard(props: any) {
     }
   };
 
-  // NAVEGATION HELPER ABSOLU
   const handleNav = (target: string) => {
     if (props.setView) props.setView(target);
     else if (props.setCurrentView) props.setCurrentView(target);
@@ -100,8 +98,8 @@ export default function Dashboard(props: any) {
              <Bell size={14} className="mr-2" /> Annonces du Club
            </h3>
            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/50 border-l-2 border-l-cyan-500">
-             <p className="text-sm font-bold text-slate-200 mb-1">Mise à jour Tactique</p>
-             <p className="text-[10px] text-slate-400 leading-relaxed">Les modules Chrono, Agenda, Tournoi et le Palmarès sont en ligne et verrouillés. Le défilement est optimisé.</p>
+             <p className="text-sm font-bold text-slate-200 mb-1">Système Opérationnel</p>
+             <p className="text-[10px] text-slate-400 leading-relaxed">Bienvenue sur le Cortex de la S.M.G. Défilement corrigé, profils membres intégrés et rôles sécurisés.</p>
            </div>
         </div>
 

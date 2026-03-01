@@ -48,11 +48,11 @@ const AppContent = () => {
 
   const handleUpdateUser = (u: User) => { setCurrentUser(u); localStorage.setItem('smg_current_user', JSON.stringify(u)); };
 
-  if (isInitializing) return <div className="min-min-min-min-h-screen bg-[#121212] flex items-center justify-center text-cyan-500 font-mono">SYNC...</div>;
+  if (isInitializing) return <div className="min-min-min-min-min-h-screen bg-[#121212] flex items-center justify-center text-cyan-500 font-mono">SYNC...</div>;
 
   return (
-    <div className="min-min-min-min-h-screen bg-[#121212] text-[#eee] flex justify-center selection:bg-cyan-500/30">
-      <main className="w-full max-w-md relative min-min-min-min-h-screen shadow-2xl border-x border-slate-900/50 overflow-x-hidden">
+    <div className="min-min-min-min-min-h-screen bg-[#121212] text-[#eee] flex justify-center selection:bg-cyan-500/30">
+      <main className="w-full max-w-md relative min-min-min-min-min-h-screen shadow-2xl border-x border-slate-900/50 overflow-x-hidden">
         <Routes>
           <Route path="/login" element={!currentUser ? <Login onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
           <Route path="/register" element={!currentUser ? <Register onLogin={(u) => {setCurrentUser(u); navigate('/home');}} onNavigate={(r) => navigate('/' + r)} /> : <Navigate to="/home" />} />
