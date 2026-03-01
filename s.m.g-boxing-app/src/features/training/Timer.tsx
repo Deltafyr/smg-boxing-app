@@ -21,9 +21,7 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
   const [timeLeft, setTimeLeft] = useState(10);
   const [currentRound, setCurrentRound] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
-  const [isMuted, setIsMuted] = useState(true); // Muted par défaut pour le dev
   
-  // Custom Timer Form
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [cName, setCName] = useState('Mon Chrono');
   const [cWork, setCWork] = useState(120);
@@ -145,13 +143,14 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 };
 
 export default function TimerPage() {
+  // SCROLL FIX ABSOLU INCLUS ICI AUSSI
   return (
-    <div className="w-full min-h-screen p-4 pb-32">
+    <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto flex flex-col h-full">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic uppercase">Chrono</h2><span className="text-[10px] text-rose-500 font-mono uppercase tracking-widest">Maître du Temps</span></div>
         </div>
-        <div className="flex-1"><TimerModule id="t1" isSole={true} /></div>
+        <div><TimerModule id="t1" isSole={true} /></div>
       </div>
     </div>
   );

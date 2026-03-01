@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, ChevronRight, Swords } from 'lucide-react';
+import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, Swords } from 'lucide-react';
 import { User } from '../types';
 
-export default function Dashboard({ currentUser }: { currentUser: User }) {
+export default function Dashboard({ currentUser, setView }: any) {
   const [showPalmares, setShowPalmares] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
-  // PALMARES DUR
+  // PALMARES DUR (Sauvegardé)
   const palmaresData = [
     { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Méline', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
     { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Pauline', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
@@ -57,6 +57,16 @@ export default function Dashboard({ currentUser }: { currentUser: User }) {
     }
   };
 
+  // NAVEGATION HELPER
+  const handleNav = (target: string) => {
+    if (setView) {
+      setView(target);
+    } else {
+      // Fallback au cas où l'app utilise un Event global
+      window.dispatchEvent(new CustomEvent('navigate', { detail: target }));
+    }
+  };
+
   return (
     <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto space-y-6">
@@ -81,20 +91,24 @@ export default function Dashboard({ currentUser }: { currentUser: User }) {
            </h3>
            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/50 border-l-2 border-l-cyan-500">
              <p className="text-sm font-bold text-slate-200 mb-1">Mise à jour Tactique</p>
-             <p className="text-[10px] text-slate-400 leading-relaxed">Le système de Palmarès, le suivi des tournois en Live et les nouveaux chronomètres sont déployés et opérationnels. Bonne préparation !</p>
+             <p className="text-[10px] text-slate-400 leading-relaxed">Les modules Chrono, Agenda, Tournoi et le Palmarès sont en ligne et verrouillés. Le défilement est optimisé.</p>
            </div>
         </div>
 
-        {/* RACCOURCIS RAPIDES */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg cursor-pointer hover:bg-slate-800 transition-colors">
+        {/* RACCOURCIS RAPIDES (3 BOUTONS) */}
+        <div className="grid grid-cols-3 gap-3">
+          <button onClick={() => handleNav('TIMER')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
             <Timer size={24} className="text-rose-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Chrono</span>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg cursor-pointer hover:bg-slate-800 transition-colors">
+          </button>
+          <button onClick={() => handleNav('AGENDA')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+            <CalendarIcon size={24} className="text-cyan-500 mb-2" />
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">Agenda</span>
+          </button>
+          <button onClick={() => handleNav('TOURNAMENT')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
             <Swords size={24} className="text-amber-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Arène</span>
-          </div>
+          </button>
         </div>
 
         {/* WIDGET AGENDA */}
@@ -124,7 +138,7 @@ export default function Dashboard({ currentUser }: { currentUser: User }) {
         {/* BOUTON PALMARÈS */}
         <button 
           onClick={() => setShowPalmares(!showPalmares)}
-          className={`w-full p-4 rounded-xl border flex items-center justify-between transition-all shadow-lg ${showPalmares ? 'bg-amber-950 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-white'}`}
+          className={`w-full p-4 rounded-xl border flex items-center justify-between transition-all shadow-lg focus:outline-none ${showPalmares ? 'bg-amber-950 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-white'}`}
         >
           <div className="flex items-center font-black uppercase tracking-widest text-sm">
             <Trophy size={18} className="mr-3" />
