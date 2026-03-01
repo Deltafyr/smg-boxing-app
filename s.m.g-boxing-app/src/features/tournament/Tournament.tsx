@@ -41,7 +41,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
   const [view, setView] = useState<'LIST' | 'DETAIL'>('LIST');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [fightCards, setFightCards] = useState<any[]>([]); // Using any for extended structure (matches array)
+  const [fightCards, setFightCards] = useState<any[]>([]);
   const [members, setMembers] = useState<User[]>([]);
   const [activeComp, setActiveComp] = useState<Competition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,9 +131,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     } catch (e) { alert('Erreur enregistrement'); } setIsLoading(false);
   };
 
-  // ==========================================================================
-  // CORTEX SCRAPER: SIMULATION DE CONNEXION FFKMDA (PRECISION SCANNER)
-  // ==========================================================================
   const executeFFKMDAScan = async () => {
     if (!ffkmdaId) return;
     setScanStatus('SCANNING');
@@ -202,7 +199,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   };
 
   const handleUpdateMatch = async (card: any, matchId: string, fields: any) => {
-    // Migration à la volée pour les anciennes cartes
     let currentMatches = card.matches;
     if (!currentMatches) {
        currentMatches = [{ id: `m_${Date.now()}`, title: 'Combat Principal', area: card.area || '?', matchNum: card.matchNum || 'TBD', headgear: card.headgear || '', result: card.result || 'En attente' }];
@@ -226,14 +222,12 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     } catch(e) {}
   };
 
-  // ==========================================================================
-  // VUE DETAIL : LISTE DES COMBATTANTS
-  // ==========================================================================
   if (view === 'DETAIL' && activeComp) {
     const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
 
+    // FIX SCROLL: Retrait de h-full et overflow contraint. On laisse le document scroll naturellement.
     return (
-      <div className="p-4 pb-32 h-full overflow-y-auto max-w-lg mx-auto space-y-6">
+      <div className="p-4 pb-32 max-w-lg mx-auto space-y-6">
         <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour</button>
         
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
@@ -271,7 +265,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
              
              {regMode === 'AUTO' ? (
                <div className="space-y-3">
-                 <p className="text-[10px] text-slate-400 font-mono leading-tight">Extraction automatique des combattants S.M.G depuis la fédération (estimation des poules & combats).</p>
+                 <p className="text-[10px] text-slate-400 font-mono leading-tight">Extraction automatique des combattants S.M.G depuis la fédération.</p>
                  <div className="flex space-x-2">
                    <div className="flex-1 relative">
                      <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
@@ -281,7 +275,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                      {scanStatus === 'SCANNING' ? <Activity size={14} className="animate-spin" /> : 'Scanner'}
                    </button>
                  </div>
-                 {/* CORTEX LOGS */}
                  {scanLogs.length > 0 && (
                    <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
                      {scanLogs.map((log, i) => (
@@ -322,7 +315,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
             {compCards.map(card => {
               const canEdit = isStaff || card.userId === currentUser.id;
               
-              // Retro-compatibilité pour les anciennes fiches
               const matches = card.matches && card.matches.length > 0 ? card.matches : [{ 
                 id: 'legacy_1', title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
                 headgear: card.headgear || '', result: card.result || 'En attente' 
@@ -330,7 +322,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
               return (
                 <div key={card.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-                  {/* HEADER DU COMBATTANT */}
                   <div className="bg-slate-800/50 p-3 flex justify-between items-center relative">
                     {isStaff && <button onClick={() => handleDeleteCard(card.id)} className="absolute top-3 right-3 text-slate-500 hover:text-rose-500"><Trash2 size={14}/></button>}
                     <div>
@@ -339,7 +330,6 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                     </div>
                   </div>
 
-                  {/* TIMELINE DES COMBATS */}
                   <div className="p-3 space-y-3 bg-slate-900/80">
                     {matches.map((m: any, idx: number) => {
                       const isPendingInfo = m.area === '?' || !m.matchNum || m.matchNum === 'TBD';
@@ -404,11 +394,9 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     );
   }
 
-  // ==========================================================================
-  // VUE LISTE : REPERTOIRE DES COMPETITIONS
-  // ==========================================================================
+  // LIST VIEW - Fix Scroll also
   return (
-    <div className="p-4 pb-24 h-full flex flex-col max-w-lg mx-auto">
+    <div className="p-4 pb-32 flex flex-col max-w-lg mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2>
@@ -421,7 +409,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pb-10">
+      <div className="flex-1 space-y-3 pb-10">
         {isLoading && <p className="text-center text-amber-500 text-xs font-mono animate-pulse">RECHERCHE D'ÉVÉNEMENTS...</p>}
         {competitions.map(comp => {
           const isUpcoming = new Date(comp.date) >= new Date();
