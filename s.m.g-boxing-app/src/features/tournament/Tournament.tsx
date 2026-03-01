@@ -248,7 +248,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                    <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
                      {scanLogs.map((log, i) => (
                        <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('TROUVÉ') || log.includes('TERMINÉ') ? 'text-emerald-400' : 'text-slate-500'}`}>
-                         > {log}
+                         {">"} {log}
                        </div>
                      ))}
                    </div>
