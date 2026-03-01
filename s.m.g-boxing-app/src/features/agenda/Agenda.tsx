@@ -26,7 +26,7 @@ export default function Agenda({ currentUser }: { currentUser: User }) {
       const snap = await getDocs(q);
       
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset pour comparer uniquement la date pure
+      today.setHours(0, 0, 0, 0); 
       
       const loadedEvents: any[] = [];
       
@@ -35,7 +35,7 @@ export default function Agenda({ currentUser }: { currentUser: User }) {
         const eventDate = new Date(data.date);
         eventDate.setHours(0, 0, 0, 0);
         
-        // AUTO-NETTOYAGE : Si l'événement est antérieur à aujourd'hui, on l'efface de la base
+        // AUTO-NETTOYAGE
         if (eventDate < today) {
           await deleteDoc(doc(db, 'agenda', d.id));
         } else {
@@ -82,7 +82,7 @@ export default function Agenda({ currentUser }: { currentUser: User }) {
   };
 
   return (
-    <div className="p-4 pb-32 max-w-lg mx-auto">
+    <div className="p-4 pb-32 min-h-screen max-w-lg mx-auto">
       {/* Header & Add Button */}
       <div className="flex justify-between items-center mb-6">
         <div>

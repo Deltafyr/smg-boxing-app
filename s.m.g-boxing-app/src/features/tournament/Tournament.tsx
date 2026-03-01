@@ -225,9 +225,9 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   if (view === 'DETAIL' && activeComp) {
     const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
 
-    // FIX SCROLL: Retrait de h-full et overflow contraint. On laisse le document scroll naturellement.
+    // FIX SCROLL ABSOLU : min-h-screen force la page à prendre toute la hauteur, et pb-32 évite que la nav masque les boutons.
     return (
-      <div className="p-4 pb-32 max-w-lg mx-auto space-y-6">
+      <div className="p-4 pb-32 min-h-screen max-w-lg mx-auto space-y-6">
         <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour</button>
         
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
@@ -316,7 +316,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
               const canEdit = isStaff || card.userId === currentUser.id;
               
               const matches = card.matches && card.matches.length > 0 ? card.matches : [{ 
-                id: 'legacy_1', title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
+                id: `legacy_${Date.now()}`, title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
                 headgear: card.headgear || '', result: card.result || 'En attente' 
               }];
 
@@ -331,7 +331,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                   </div>
 
                   <div className="p-3 space-y-3 bg-slate-900/80">
-                    {matches.map((m: any, idx: number) => {
+                    {matches.map((m: any) => {
                       const isPendingInfo = m.area === '?' || !m.matchNum || m.matchNum === 'TBD';
                       const isWin = m.result === 'Victoire';
                       const isLoss = m.result === 'Défaite';
@@ -396,7 +396,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
   // LIST VIEW - Fix Scroll also
   return (
-    <div className="p-4 pb-32 flex flex-col max-w-lg mx-auto">
+    <div className="p-4 pb-32 min-h-screen flex flex-col max-w-lg mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2>
