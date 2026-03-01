@@ -143,7 +143,6 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 };
 
 export default function TimerPage() {
-  // SCROLL FIX ABSOLU INCLUS ICI AUSSI
   return (
     <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto flex flex-col h-full">

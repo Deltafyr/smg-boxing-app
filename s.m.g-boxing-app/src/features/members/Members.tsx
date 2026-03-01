@@ -3,7 +3,7 @@ import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { User } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Users, Shield, Trophy, ChevronRight, Activity, Star, Medal, ArrowLeft } from 'lucide-react';
+import { Users, Shield, Trophy, ChevronRight, Activity, Star, Medal, ArrowLeft, Info } from 'lucide-react';
 
 export default function Members({ currentUser }: { currentUser: User }) {
   const [members, setMembers] = useState<User[]>([]);
@@ -17,7 +17,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // CORRECTION MAJEURE: ON CIBLE LA COLLECTION "members" POUR AVOIR TOUTE LA LISTE
         const mSnap = await getDocs(collection(db, 'members'));
         const mList: User[] = []; mSnap.forEach(d => mList.push({ id: d.id, ...d.data() } as User));
         setMembers(mList);
@@ -34,7 +33,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (!confirm(`Promouvoir ce membre au rang de ${newRole} ?`)) return;
     try {
-      // CORRECTION MAJEURE: ON MODIFIE LA COLLECTION "members"
       await updateDoc(doc(db, 'members', userId), { role: newRole });
       setMembers(members.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
       if (selectedMember && selectedMember.id === userId) {
@@ -110,6 +108,31 @@ export default function Members({ currentUser }: { currentUser: User }) {
                 ) : (
                   <p className="text-xs text-slate-500 font-mono mt-1 uppercase tracking-widest">Combattant S.M.G</p>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* AJOUT REQUIS : INFORMATIONS PERSONNELLES DU COMBATTANT */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-4 flex items-center">
+              <Info size={14} className="mr-2 text-cyan-500"/> Profil Combattant
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Email</span>
+                <span className="text-sm font-bold text-white break-all">{selectedMember.email || 'N/C'}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Naissance</span>
+                <span className="text-sm font-bold text-white">{selectedMember.birthDate ? new Date(selectedMember.birthDate).toLocaleDateString('fr-FR') : 'N/C'}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Genre</span>
+                <span className="text-sm font-bold text-white">{selectedMember.gender || 'N/C'}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-500 font-bold uppercase mb-1">Poids</span>
+                <span className="text-sm font-bold text-white">{selectedMember.weight ? `${selectedMember.weight} kg` : 'N/C'}</span>
               </div>
             </div>
           </div>

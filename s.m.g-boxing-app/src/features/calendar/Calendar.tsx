@@ -75,7 +75,6 @@ export default function Calendar({ currentUser }: { currentUser: User }) {
     }
   };
 
-  // SCROLL FIX ABSOLU INCLUS ICI
   return (
     <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto">
