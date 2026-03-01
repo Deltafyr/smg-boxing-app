@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { User } from '../../types';
+import { db } from '../lib/firebase';
+import { User } from '../types';
 import { Trophy, Calendar as CalendarIcon, Medal, Star, Activity, Clock } from 'lucide-react';
 
 export default function Dashboard({ currentUser }: { currentUser: User }) {
