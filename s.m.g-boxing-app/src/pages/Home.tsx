@@ -21,7 +21,7 @@ export default function Dashboard(props: any) {
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Axel', medal: 'Argent', iconColor: 'text-slate-300', shadow: 'shadow-[0_0_8px_rgba(203,213,225,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Benjamin', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Lucas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Elise', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
+    { comp: 'Champion Régional AURA 2025', date: '2025-11-22', name: 'Elise', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Nicolas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Julien', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' }
   ];

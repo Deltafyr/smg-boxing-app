@@ -3,7 +3,7 @@ import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { User } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Users, Shield, Trophy, ChevronRight, Activity, Star, Medal, ArrowLeft, Mail, Phone, Calendar, Dumbbell, Fingerprint, Search } from 'lucide-react';
+import { Users, Shield, Trophy, ChevronRight, Activity, Star, Medal, ArrowLeft, Mail, Phone, Calendar, Dumbbell, Search } from 'lucide-react';
 
 const calculateCategoryFFKMDA = (birthYear: number, gender: 'M'|'F' = 'M') => {
   const currentYear = new Date().getFullYear();
@@ -25,6 +25,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isAdmin = currentUser?.role === 'Admin';
+  // AJOUT TACTIQUE : Un Coach a le droit de promouvoir un Membre en Coach (ou le rétrograder)
+  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,12 +123,14 @@ export default function Members({ currentUser }: { currentUser: User }) {
             <ArrowLeft size={14} className="mr-2"/> Retour à l'Annuaire
           </button>
           
-          {/* CARTE D'IDENTITÉ HERO */}
+          {/* CARTE D'IDENTITÉ HERO AVEC AVATAR INITIAL */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative mt-12">
             <div className="h-16 bg-gradient-to-r from-slate-800 via-cyan-900/30 to-slate-800 relative"></div>
             <div className="px-6 pb-6 relative">
-              <div className="w-24 h-24 rounded-2xl border-4 border-slate-900 bg-slate-800 shadow-xl absolute -top-12 flex items-center justify-center left-6">
-                 <Fingerprint size={48} className={selectedMember.role === 'Admin' ? 'text-rose-500' : selectedMember.role === 'Coach' ? 'text-amber-500' : 'text-cyan-500'} />
+              <div className="w-24 h-24 rounded-2xl border-4 border-slate-900 bg-slate-800 shadow-xl absolute -top-12 flex items-center justify-center left-6 overflow-hidden">
+                 <span className={`text-5xl font-black ${selectedMember.role === 'Admin' ? 'text-rose-500' : selectedMember.role === 'Coach' ? 'text-amber-500' : 'text-cyan-500'}`}>
+                   {selectedMember.name.charAt(0).toUpperCase()}
+                 </span>
               </div>
               <div className="mt-14 sm:mt-16">
                 <div className="flex justify-between items-start">
@@ -148,8 +152,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
             </div>
           </div>
 
-          {/* GESTION DES DROITS (GOD MODE - ADMIN SEULEMENT) */}
-          {isAdmin && (
+          {/* GESTION DES DROITS (COACH ET ADMIN PEUVENT VOIR ÇA) */}
+          {isStaff && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg animate-fade-in relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-4 flex items-center"><Shield size={14} className="mr-2 text-rose-500"/> Autorisations Système</h3>
@@ -167,11 +171,12 @@ export default function Members({ currentUser }: { currentUser: User }) {
                  >Coach</button>
                  <button 
                    onClick={() => handleRoleChange(selectedMember.id, 'Admin')}
-                   disabled={selectedMember.id === currentUser.id}
-                   className={`flex-1 py-2.5 rounded shadow-sm text-xs font-black uppercase tracking-widest transition-all ${selectedMember.role === 'Admin' ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                   disabled={selectedMember.id === currentUser.id || !isAdmin}
+                   className={`flex-1 py-2.5 rounded shadow-sm text-xs font-black uppercase tracking-widest transition-all ${selectedMember.role === 'Admin' ? 'bg-rose-600 text-white' : 'bg-transparent text-slate-500 hover:text-white hover:bg-slate-800'} ${!isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`}
                  >Admin</button>
                </div>
                {selectedMember.id === currentUser.id && <p className="text-[9px] text-rose-500 mt-2 text-center font-mono">Impossible de modifier ses propres droits.</p>}
+               {!isAdmin && <p className="text-[9px] text-amber-500 mt-2 text-center font-mono">Seul un Admin peut accorder le grade Admin.</p>}
             </div>
           )}
 
@@ -283,8 +288,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
                 <FuturisticCard borderColor={member.role === 'Admin' ? 'rose' : member.role === 'Coach' ? 'amber' : 'cyan'} className="hover:bg-slate-800 transition-colors shadow-lg group-hover:shadow-[0_0_15px_rgba(6,182,212,0.1)]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className={`p-2.5 rounded-lg border shadow-inner ${member.role === 'Admin' ? 'bg-rose-950 border-rose-900 text-rose-500' : member.role === 'Coach' ? 'bg-amber-950 border-amber-900 text-amber-500' : 'bg-cyan-950 border-cyan-900 text-cyan-500'}`}>
-                        <Shield size={18} />
+                      <div className={`p-2.5 rounded-lg border shadow-inner flex items-center justify-center w-10 h-10 ${member.role === 'Admin' ? 'bg-rose-950 border-rose-900 text-rose-500' : member.role === 'Coach' ? 'bg-amber-950 border-amber-900 text-amber-500' : 'bg-cyan-950 border-cyan-900 text-cyan-500'}`}>
+                        <span className="font-black text-sm">{member.name.charAt(0).toUpperCase()}</span>
                       </div>
                       <div>
                         <h4 className="font-bold text-sm text-slate-100 group-hover:text-white transition-colors">{member.name}</h4>
