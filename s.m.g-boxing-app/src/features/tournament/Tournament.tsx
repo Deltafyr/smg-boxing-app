@@ -227,7 +227,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     }).map(k => ({ matchNum: k, matches: groupedMatches[k] }));
 
     return (
-      <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
+      <div className="w-full min-h-screen p-4 pb-32">
         <div className="max-w-lg mx-auto space-y-6">
           <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour aux compétitions</button>
           
@@ -439,7 +439,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
+    <div className="w-full min-h-screen p-4 pb-32">
       <div className="max-w-lg mx-auto flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2><span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Circuit de Compétition</span></div>

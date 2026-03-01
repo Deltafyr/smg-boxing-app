@@ -74,7 +74,7 @@ export default function PrivateSpace({ currentUser }: { currentUser: User }) {
   const highestTitle = getHighestTitle();
 
   return (
-    <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
+    <div className="w-full min-h-screen p-4 pb-32">
       <div className="max-w-lg mx-auto space-y-6">
         
         {/* CARTE D'IDENTITÉ & TITRE SUPRÊME */}

@@ -146,7 +146,7 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 
 export default function TimerPage() {
   return (
-    <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
+    <div className="w-full min-h-screen p-4 pb-32">
       <div className="max-w-lg mx-auto flex flex-col h-full">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic uppercase">Chrono</h2><span className="text-[10px] text-rose-500 font-mono uppercase tracking-widest">Maître du Temps</span></div>
