@@ -233,7 +233,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
 
     return (
-      <div className="p-4 pb-24 max-w-lg mx-auto space-y-6">
+      <div className="p-4 pb-32 h-full overflow-y-auto max-w-lg mx-auto space-y-6">
         <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour</button>
         
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
