@@ -60,14 +60,12 @@ export default function Dashboard(props: any) {
 
   // NAVEGATION HELPER ABSOLU
   const handleNav = (target: string) => {
-    // 1. On essaie d'abord les props les plus courantes
     if (props.setView) props.setView(target);
     else if (props.setCurrentView) props.setCurrentView(target);
     else if (props.setActiveTab) props.setActiveTab(target);
     else if (props.setTab) props.setTab(target);
     else if (props.navigate) props.navigate(target);
     else if (props.onNavigate) props.onNavigate(target);
-    // 2. Si aucune prop ne correspond, on utilise la force brute : simulation de clic sur la barre de navigation en bas
     else {
       const navButtons = document.querySelectorAll('nav button, div[class*="bottom"] button');
       navButtons.forEach((btn: any) => {

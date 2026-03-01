@@ -12,7 +12,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
 
   const isAdmin = currentUser?.role === 'Admin';
-  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,7 +86,7 @@ export default function Members({ currentUser }: { currentUser: User }) {
     const highestTitle = getHighestTitle(memberPalmares);
 
     return (
-      <div className="w-full min-h-screen pb-32 p-4">
+      <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
         <div className="max-w-lg mx-auto space-y-6">
           <button onClick={() => setSelectedMember(null)} className="text-slate-500 text-xs font-bold uppercase hover:text-cyan-500 transition-colors flex items-center">
             <ArrowLeft size={14} className="mr-1"/> Retour à la liste
@@ -166,7 +165,7 @@ export default function Members({ currentUser }: { currentUser: User }) {
 
   // VUE LISTE : ANNUAIRE DES MEMBRES
   return (
-    <div className="w-full min-h-screen pb-32 p-4">
+    <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <div>
