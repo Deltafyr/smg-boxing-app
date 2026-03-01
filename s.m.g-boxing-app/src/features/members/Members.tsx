@@ -17,7 +17,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const mSnap = await getDocs(collection(db, 'users'));
+        // CORRECTION MAJEURE: ON CIBLE LA COLLECTION "members" POUR AVOIR TOUTE LA LISTE
+        const mSnap = await getDocs(collection(db, 'members'));
         const mList: User[] = []; mSnap.forEach(d => mList.push({ id: d.id, ...d.data() } as User));
         setMembers(mList);
 
@@ -33,7 +34,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (!confirm(`Promouvoir ce membre au rang de ${newRole} ?`)) return;
     try {
-      await updateDoc(doc(db, 'users', userId), { role: newRole });
+      // CORRECTION MAJEURE: ON MODIFIE LA COLLECTION "members"
+      await updateDoc(doc(db, 'members', userId), { role: newRole });
       setMembers(members.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
       if (selectedMember && selectedMember.id === userId) {
         setSelectedMember({ ...selectedMember, role: newRole as any });
@@ -180,6 +182,11 @@ export default function Members({ currentUser }: { currentUser: User }) {
 
         {isLoading ? (
           <div className="flex justify-center py-10"><Activity className="text-cyan-500 animate-spin"/></div>
+        ) : members.length === 0 ? (
+          <div className="text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+            <Users size={32} className="mx-auto text-slate-600 mb-3" />
+            <p className="text-xs text-slate-400 font-mono">Aucun membre n'a été trouvé dans la base.</p>
+          </div>
         ) : (
           <div className="space-y-3 pb-10">
             {members.map(member => (
