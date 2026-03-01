@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { User, Competition, FightCard } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
-import { Trophy, Plus, ChevronRight, Swords, UserPlus, Save, Edit3, Trash2, Medal, XCircle, CheckCircle, Activity, Radar, Search, AlertTriangle } from 'lucide-react';
+import { Trophy, ChevronRight, Swords, UserPlus, Save, Edit3, Trash2, CheckCircle, XCircle, Activity, Radar, Search, AlertTriangle, Plus } from 'lucide-react';
 
 // --- LOGIQUE METIER FFKMDA ---
 const calculateCategoryFFKMDA = (birthYear: number, gender: 'M'|'F' = 'M') => {
@@ -21,12 +21,27 @@ const calculateCategoryFFKMDA = (birthYear: number, gender: 'M'|'F' = 'M') => {
   return `${cat} (${gender})`;
 };
 
+const generateMatchesTimeline = (count: number) => {
+  const titles = count >= 4 ? ['1/8 Finale', '1/4 Finale', 'Demi-Finale', 'Finale'] :
+                 count === 3 ? ['1/4 Finale', 'Demi-Finale', 'Finale'] :
+                 count === 2 ? ['Demi-Finale', 'Finale'] : ['Finale'];
+  
+  return titles.map((t, i) => ({
+    id: `m_${Date.now()}_${i}`,
+    title: t,
+    area: '?',
+    matchNum: 'TBD',
+    headgear: '',
+    result: 'En attente'
+  }));
+};
+
 export default function Tournament({ currentUser }: { currentUser: User }) {
   if (!currentUser) return null;
 
   const [view, setView] = useState<'LIST' | 'DETAIL'>('LIST');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [fightCards, setFightCards] = useState<FightCard[]>([]);
+  const [fightCards, setFightCards] = useState<any[]>([]); // Using any for extended structure (matches array)
   const [members, setMembers] = useState<User[]>([]);
   const [activeComp, setActiveComp] = useState<Competition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,7 +84,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
       setCompetitions(cList.sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()));
       
       const fSnap = await getDocs(collection(db, 'fightCards')); 
-      const fList: FightCard[] = []; fSnap.forEach(d => fList.push({ id: d.id, ...d.data() } as FightCard)); 
+      const fList: any[] = []; fSnap.forEach(d => fList.push({ id: d.id, ...d.data() })); 
       setFightCards(fList);
       
       if (isStaff) { 
@@ -100,7 +115,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   const handleRegisterManual = async () => {
     if (!activeComp) return; setIsLoading(true);
     try {
-      let newCard: any = { compId: activeComp.id, area: '?', matchNum: '?', headgear: '', day: 'En attente', result: 'En attente', titleEarned: '' };
+      let newCard: any = { compId: activeComp.id, day: 'En attente', matches: generateMatchesTimeline(1), estimatedFights: 1 };
       
       if (regMode === 'INTERNAL' && selectedMemberId) {
         const targetUser = members.find(m => m.id === selectedMemberId); if (!targetUser) return;
@@ -133,13 +148,12 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
       await delay(1200); addLog("-> 2 inscrits validés : Armand CHESSEL, Méline GARNIER.");
       
       await delay(1000); addLog("Étape 2 : Scan des 141 pages du registre public...");
-      await delay(1500); addLog("-> POULE LOCALISÉE : Armand CHESSEL (Junior Homme -69 kg - Kick light). 8 inscrits. Estimation : 3 combats.");
-      await delay(1200); addLog("-> POULE LOCALISÉE : Méline GARNIER (Junior Femme -50 kg - Kick light). 4 inscrites. Estimation : 2 combats.");
+      await delay(1500); addLog("-> POULE LOCALISÉE : Armand CHESSEL (Junior Homme -69 kg). 16 inscrits. Estimation : 4 combats (1/8 -> Finale).");
+      await delay(1200); addLog("-> POULE LOCALISÉE : Méline GARNIER (Junior Femme -50 kg). 4 inscrites. Estimation : 2 combats (Demi -> Finale).");
       
       await delay(1000); addLog("Croisement avec la base de données du club...");
 
       try {
-        // 1. Créer la comp si elle n'existe pas
         let compId = activeComp?.id;
         if (!compId) {
           const compData = { name: "CHAMPIONNAT DE FRANCE KICK LIGHT 2026", date: "2026-03-14", location: "Halle Georges Carpentier, Paris", compType: "Championnat", compStyle: "Kick light" };
@@ -148,31 +162,30 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
           setActiveComp(newComp);
         }
 
-        // Recherche stricte dans les membres pour éviter les faux positifs (ex: Armand Freyssinet au lieu de Armand Chessel)
         const armandMember = members.find(m => m.name.toLowerCase().includes('armand') && m.name.toLowerCase().includes('chessel'));
         const melineMember = members.find(m => (m.name.toLowerCase().includes('méline') || m.name.toLowerCase().includes('meline')) && m.name.toLowerCase().includes('garnier'));
 
-        // 2. Créer Armand Chessel
         const armandCard = { 
           compId, 
           userId: armandMember ? armandMember.id : `ext_armand_${Date.now()}`, 
-          userName: armandMember ? armandMember.name : "Armand Chessel", 
-          weight: "69", category: "Junior (M)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 3 
+          userName: "Armand CHESSEL", 
+          weight: "69", category: "Junior (M)", day: "Samedi", estimatedFights: 4,
+          matches: generateMatchesTimeline(4)
         };
         const ref1 = await addDoc(collection(db, 'fightCards'), armandCard);
         
-        // 3. Créer Méline Garnier
         const melineCard = { 
           compId, 
           userId: melineMember ? melineMember.id : `ext_meline_${Date.now()}`, 
-          userName: melineMember ? melineMember.name : "Méline Garnier", 
-          weight: "50", category: "Junior (F)", area: "?", matchNum: "TBD", headgear: "", day: "Samedi", result: "En attente", estimatedFights: 2 
+          userName: "Méline GARNIER", 
+          weight: "50", category: "Junior (F)", day: "Samedi", estimatedFights: 2,
+          matches: generateMatchesTimeline(2)
         };
         const ref2 = await addDoc(collection(db, 'fightCards'), melineCard);
 
         setFightCards(prev => [...prev, {id: ref1.id, ...armandCard}, {id: ref2.id, ...melineCard}]);
         setScanStatus('FOUND');
-        addLog("TERMINÉ. Cartes de compétition générées avec succès.");
+        addLog("TERMINÉ. Cartes et Timelines générées avec succès.");
       } catch(e) {
         setScanStatus('ERROR'); addLog("Erreur lors de l'écriture en base.");
       }
@@ -183,21 +196,34 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     }
   };
 
-  const handleUpdateCard = async (cardId: string, fields: any) => {
-    try { await updateDoc(doc(db, 'fightCards', cardId), fields); setFightCards(fightCards.map(c => c.id === cardId ? { ...c, ...fields } : c)); } catch (e) {}
-  };
-
   const handleDeleteCard = async (cardId: string) => {
     if(!confirm("Supprimer définitivement ce combattant du tournoi ?")) return;
     try { await deleteDoc(doc(db, 'fightCards', cardId)); setFightCards(fightCards.filter(c => c.id !== cardId)); } catch(e){}
   };
 
-  const handleSaveResult = async (card: FightCard) => {
-    setIsLoading(true);
+  const handleUpdateMatch = async (card: any, matchId: string, fields: any) => {
+    // Migration à la volée pour les anciennes cartes
+    let currentMatches = card.matches;
+    if (!currentMatches) {
+       currentMatches = [{ id: `m_${Date.now()}`, title: 'Combat Principal', area: card.area || '?', matchNum: card.matchNum || 'TBD', headgear: card.headgear || '', result: card.result || 'En attente' }];
+    }
+    
+    const updatedMatches = currentMatches.map((m: any) => m.id === matchId ? { ...m, ...fields } : m);
+    
     try {
-      await updateDoc(doc(db, 'fightCards', card.id), { result: card.result, titleEarned: card.titleEarned });
-      setFightCards(fightCards.map(c => c.id === card.id ? card : c));
-    } catch(e) {} setIsLoading(false);
+      await updateDoc(doc(db, 'fightCards', card.id), { matches: updatedMatches });
+      setFightCards(fightCards.map(c => c.id === card.id ? { ...c, matches: updatedMatches } : c));
+    } catch(e) {}
+  };
+
+  const addMatchToCard = async (card: any) => {
+    const currentMatches = card.matches || [];
+    const newMatch = { id: `m_${Date.now()}`, title: `Combat Sup. ${currentMatches.length + 1}`, area: '?', matchNum: 'TBD', headgear: '', result: 'En attente' };
+    const updatedMatches = [...currentMatches, newMatch];
+    try {
+      await updateDoc(doc(db, 'fightCards', card.id), { matches: updatedMatches, estimatedFights: updatedMatches.length });
+      setFightCards(fightCards.map(c => c.id === card.id ? { ...c, matches: updatedMatches, estimatedFights: updatedMatches.length } : c));
+    } catch(e) {}
   };
 
   // ==========================================================================
@@ -260,7 +286,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                    <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
                      {scanLogs.map((log, i) => (
                        <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('POULE') || log.includes('TERMINÉ') || log.includes('inscrits validés') ? 'text-emerald-400' : 'text-slate-500'}`}>
-                         {">"} {log}
+                         &gt; {log}
                        </div>
                      ))}
                    </div>
@@ -290,46 +316,85 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
         <div>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1 mb-3 flex items-center justify-between">
-            <span className="flex items-center"><Swords size={12} className="mr-2 text-rose-500"/> Fiches Combattants ({compCards.length})</span>
-            {compCards.length > 0 && <span className="text-[9px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 animate-pulse">En attente de pesée/tirage</span>}
+            <span className="flex items-center"><Swords size={12} className="mr-2 text-rose-500"/> Dossiers Combattants ({compCards.length})</span>
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {compCards.map(card => {
               const canEdit = isStaff || card.userId === currentUser.id;
-              // On detecte si la fiche est "incomplète" (ex: générée par l'auto-scan avant la pesée)
-              const isPendingInfo = card.area === '?' || !card.matchNum || card.matchNum === 'TBD';
+              
+              // Retro-compatibilité pour les anciennes fiches
+              const matches = card.matches && card.matches.length > 0 ? card.matches : [{ 
+                id: 'legacy_1', title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
+                headgear: card.headgear || '', result: card.result || 'En attente' 
+              }];
 
               return (
-                <div key={card.id} className={`p-3 rounded-xl border relative ${isPendingInfo ? 'bg-slate-900/40 border-slate-700 border-dashed' : 'bg-slate-900 border-slate-800'}`}>
-                  {isStaff && <button onClick={() => handleDeleteCard(card.id)} className="absolute top-2 right-2 text-slate-600 hover:text-rose-500"><Trash2 size={14}/></button>}
-                  
-                  <div className="flex justify-between items-start mb-3 pb-2 border-b border-slate-800/50 pr-6">
+                <div key={card.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+                  {/* HEADER DU COMBATTANT */}
+                  <div className="bg-slate-800/50 p-3 flex justify-between items-center relative">
+                    {isStaff && <button onClick={() => handleDeleteCard(card.id)} className="absolute top-3 right-3 text-slate-500 hover:text-rose-500"><Trash2 size={14}/></button>}
                     <div>
-                      <span className="font-bold text-sm text-slate-100 flex items-center">
-                        {card.userName} 
-                        {(card as any).estimatedFights > 0 && <span className="ml-2 text-[8px] bg-cyan-900/50 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-800">Est. {(card as any).estimatedFights} combats</span>}
-                      </span>
-                      <span className="text-[9px] text-amber-500 font-mono uppercase mt-0.5 block">{card.category} • {card.weight}kg</span>
+                      <h4 className="font-black text-lg text-white uppercase tracking-tight">{card.userName}</h4>
+                      <p className="text-[10px] text-amber-500 font-mono font-bold uppercase mt-0.5">{card.category} • {card.weight}kg</p>
                     </div>
                   </div>
-                  
-                  {canEdit ? (
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Jour</label><input type="text" value={card.day} onChange={e => handleUpdateCard(card.id, {day: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-[10px] text-white text-center" /></div>
-                      <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Aire</label><input type="text" value={card.area} onChange={e => handleUpdateCard(card.id, {area: e.target.value})} className={`w-full bg-slate-950 border rounded p-1.5 text-xs font-bold text-center ${card.area === '?' ? 'border-amber-500/50 text-amber-500' : 'border-slate-700 text-white'}`} placeholder="?" /></div>
-                      <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">N° Cbt</label><input type="text" value={card.matchNum} onChange={e => handleUpdateCard(card.id, {matchNum: e.target.value})} className={`w-full bg-slate-950 border rounded p-1.5 text-xs font-bold text-center ${card.matchNum === 'TBD' || !card.matchNum ? 'border-amber-500/50 text-amber-500' : 'border-slate-700 text-white'}`} placeholder="N°" /></div>
-                      <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Casque</label><select value={card.headgear} onChange={e => handleUpdateCard(card.id, {headgear: e.target.value})} className={`w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-[10px] font-bold text-center ${card.headgear === 'Rouge' ? 'text-rose-500' : card.headgear === 'Bleu' ? 'text-cyan-500' : 'text-slate-400'}`}><option value="">-</option><option value="Rouge">ROUGE</option><option value="Bleu">BLEU</option></select></div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-around items-center bg-slate-950/50 p-2 rounded mb-2">
-                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Jour</span><span className="text-xs font-bold text-slate-300">{card.day || '-'}</span></div>
-                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Aire</span><span className={`text-xs font-bold ${card.area === '?' ? 'text-amber-500' : 'text-white'}`}>{card.area || '-'}</span></div>
-                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Combat</span><span className={`text-xs font-bold ${card.matchNum === 'TBD' ? 'text-amber-500' : 'text-white'}`}>{card.matchNum || '-'}</span></div>
-                      <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Casque</span><span className={`text-xs font-bold ${card.headgear==='Rouge'?'text-rose-500':card.headgear==='Bleu'?'text-cyan-500':'text-slate-500'}`}>{card.headgear || '?'}</span></div>
-                    </div>
-                  )}
-                  
-                  {isPendingInfo && <div className="text-[9px] text-slate-500 italic mt-1 flex items-center"><AlertTriangle size={10} className="mr-1 text-amber-500"/> En attente des grilles officielles FFKMDA</div>}
+
+                  {/* TIMELINE DES COMBATS */}
+                  <div className="p-3 space-y-3 bg-slate-900/80">
+                    {matches.map((m: any, idx: number) => {
+                      const isPendingInfo = m.area === '?' || !m.matchNum || m.matchNum === 'TBD';
+                      const isWin = m.result === 'Victoire';
+                      const isLoss = m.result === 'Défaite';
+
+                      return (
+                        <div key={m.id} className={`p-3 rounded-lg border relative ${isPendingInfo ? 'bg-slate-950/50 border-slate-700/50 border-dashed' : 'bg-slate-950 border-slate-700'}`}>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-xs font-black text-amber-500 uppercase tracking-widest">{m.title}</span>
+                            {isWin && <span className="bg-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded border border-emerald-500/30 flex items-center font-bold uppercase"><CheckCircle size={10} className="mr-1"/> Victoire</span>}
+                            {isLoss && <span className="bg-rose-500/20 text-rose-400 text-[9px] px-2 py-0.5 rounded border border-rose-500/30 flex items-center font-bold uppercase"><XCircle size={10} className="mr-1"/> Défaite</span>}
+                          </div>
+
+                          {canEdit ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Aire</label><input type="text" value={m.area} onChange={e => handleUpdateMatch(card, m.id, {area: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.area === '?' ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="?" /></div>
+                                <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">N° Cbt</label><input type="text" value={m.matchNum} onChange={e => handleUpdateMatch(card, m.id, {matchNum: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.matchNum === 'TBD' || !m.matchNum ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="N°" /></div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div>
+                                  <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Couleur (Casque)</label>
+                                  <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                                    <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Rouge'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Rouge' ? 'bg-rose-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Rouge</button>
+                                    <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Bleu'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Bleu' ? 'bg-cyan-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Bleu</button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Issue</label>
+                                  <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                                    <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Victoire'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Victoire' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><CheckCircle size={12}/></button>
+                                    <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Défaite'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Défaite' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><XCircle size={12}/></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex justify-around items-center bg-slate-900 p-2 rounded border border-slate-800">
+                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Aire</span><span className={`text-xs font-bold ${m.area === '?' ? 'text-amber-500' : 'text-white'}`}>{m.area || '-'}</span></div>
+                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Combat</span><span className={`text-xs font-bold ${m.matchNum === 'TBD' ? 'text-amber-500' : 'text-white'}`}>{m.matchNum || '-'}</span></div>
+                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Casque</span><span className={`text-xs font-bold ${m.headgear==='Rouge'?'text-rose-500':m.headgear==='Bleu'?'text-cyan-500':'text-slate-500'}`}>{m.headgear || '?'}</span></div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {canEdit && (
+                       <button onClick={() => addMatchToCard(card)} className="w-full py-2 bg-slate-900 border border-slate-700 border-dashed rounded-lg text-[10px] text-slate-400 uppercase font-bold tracking-widest hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center">
+                         <Plus size={12} className="mr-1" /> Ajouter un combat à la timeline
+                       </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
