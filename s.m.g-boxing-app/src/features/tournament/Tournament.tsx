@@ -225,169 +225,171 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   if (view === 'DETAIL' && activeComp) {
     const compCards = fightCards.filter(fc => fc.compId === activeComp.id);
 
-    // FIX SCROLL ABSOLU : min-h-screen force la page à prendre toute la hauteur, et pb-32 évite que la nav masque les boutons.
+    // FIX SCROLL ABSOLU: Un conteneur englobant h-full overflow-y-auto isole le scroll du reste de l'app.
     return (
-      <div className="p-4 pb-32 min-h-screen max-w-lg mx-auto space-y-6">
-        <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour</button>
-        
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
-           {isStaff && (
-             <button onClick={() => isEditingComp ? setIsEditingComp(false) : setIsEditingComp(true)} className="absolute top-3 right-3 text-slate-500 hover:text-amber-500 p-2">
-               {isEditingComp ? <Save size={16} className="text-emerald-500"/> : <Edit3 size={16}/>}
-             </button>
-           )}
-           <Trophy className="text-amber-500 mx-auto mb-2" size={32} />
-           
-           {!isEditingComp ? (
-             <div className="text-center">
-               <h2 className="text-xl font-black text-white italic uppercase">{activeComp.name}</h2>
-               <p className="text-[10px] text-amber-500 font-mono font-bold mt-1 uppercase tracking-widest">{activeComp.compType} • {activeComp.compStyle}</p>
-               <p className="text-xs text-slate-400 font-mono mt-1">{new Date(activeComp.date).toLocaleDateString('fr-FR')} - {activeComp.location}</p>
-             </div>
-           ) : (
-             <div className="space-y-2 mt-4">
-               <input type="text" value={activeComp.name} onChange={e=>setActiveComp({...activeComp, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Nom..." />
-               <div className="grid grid-cols-2 gap-2"><input type="date" value={activeComp.date} onChange={e=>setActiveComp({...activeComp, date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" /><input type="text" value={activeComp.location} onChange={e=>setActiveComp({...activeComp, location: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Ville" /></div>
-             </div>
-           )}
-        </div>
-
-        {isStaff && (
-          <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl mb-4 animate-fade-in shadow-lg">
-             <div className="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
-               <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center"><UserPlus size={12} className="mr-2"/> Panel d'Engagement</h4>
-               <div className="flex space-x-1">
-                 <button onClick={() => setRegMode('AUTO')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='AUTO'?'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50':'text-slate-500'}`}><Radar size={10} className="inline mr-1"/> Auto</button>
-                 <button onClick={() => setRegMode('INTERNAL')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='INTERNAL'?'bg-amber-500/20 text-amber-500 border border-amber-500/50':'text-slate-500'}`}>Club</button>
-                 <button onClick={() => setRegMode('EXTERNAL')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='EXTERNAL'?'bg-rose-500/20 text-rose-400 border border-rose-500/50':'text-slate-500'}`}>Libre</button>
-               </div>
-             </div>
+      <div className="h-full w-full overflow-y-auto p-4 pb-32">
+        <div className="max-w-lg mx-auto space-y-6">
+          <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour</button>
+          
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-xl relative">
+             {isStaff && (
+               <button onClick={() => isEditingComp ? setIsEditingComp(false) : setIsEditingComp(true)} className="absolute top-3 right-3 text-slate-500 hover:text-amber-500 p-2">
+                 {isEditingComp ? <Save size={16} className="text-emerald-500"/> : <Edit3 size={16}/>}
+               </button>
+             )}
+             <Trophy className="text-amber-500 mx-auto mb-2" size={32} />
              
-             {regMode === 'AUTO' ? (
-               <div className="space-y-3">
-                 <p className="text-[10px] text-slate-400 font-mono leading-tight">Extraction automatique des combattants S.M.G depuis la fédération.</p>
-                 <div className="flex space-x-2">
-                   <div className="flex-1 relative">
-                     <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
-                     <input type="text" placeholder="ID FFKMDA (ex: 902)" value={ffkmdaId} onChange={e=>setFfkmdaId(e.target.value)} disabled={scanStatus === 'SCANNING'} className="w-full bg-slate-950 border border-cyan-500/30 rounded-lg text-xs py-2 pl-8 pr-2 text-cyan-400 outline-none focus:border-cyan-500 font-mono" />
-                   </div>
-                   <button onClick={executeFFKMDAScan} disabled={!ffkmdaId || scanStatus === 'SCANNING'} className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 px-4 rounded-lg font-black text-xs uppercase disabled:opacity-50 flex items-center">
-                     {scanStatus === 'SCANNING' ? <Activity size={14} className="animate-spin" /> : 'Scanner'}
-                   </button>
-                 </div>
-                 {scanLogs.length > 0 && (
-                   <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
-                     {scanLogs.map((log, i) => (
-                       <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('POULE') || log.includes('TERMINÉ') || log.includes('inscrits validés') ? 'text-emerald-400' : 'text-slate-500'}`}>
-                         &gt; {log}
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-             ) : regMode === 'INTERNAL' ? (
-               <div className="flex space-x-2">
-                 <select value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-amber-500">
-                   <option value="">Sélectionner un membre...</option>
-                   {members.filter(m => !compCards.some(c => c.userId === m.id)).map(m => (<option key={m.id} value={m.id}>{m.name} (Né en {m.birthDate ? new Date(m.birthDate).getFullYear() : '?'})</option>))}
-                 </select>
-                 <button onClick={handleRegisterManual} disabled={!selectedMemberId || isLoading} className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-4 rounded-lg font-black text-xs uppercase disabled:opacity-50">Ajouter</button>
+             {!isEditingComp ? (
+               <div className="text-center">
+                 <h2 className="text-xl font-black text-white italic uppercase">{activeComp.name}</h2>
+                 <p className="text-[10px] text-amber-500 font-mono font-bold mt-1 uppercase tracking-widest">{activeComp.compType} • {activeComp.compStyle}</p>
+                 <p className="text-xs text-slate-400 font-mono mt-1">{new Date(activeComp.date).toLocaleDateString('fr-FR')} - {activeComp.location}</p>
                </div>
              ) : (
-               <div className="space-y-2">
-                 <input type="text" placeholder="Prénom et Nom..." value={extName} onChange={e=>setExtName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/>
-                 <div className="flex space-x-2">
-                   <div className="w-1/3"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Naissance</label><input type="number" placeholder="Année" value={extBirthYear} onChange={e=>setExtBirthYear(parseInt(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/></div>
-                   <div className="w-1/4"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Sexe</label><select value={extGender} onChange={e=>setExtGender(e.target.value as any)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"><option value="M">M</option><option value="F">F</option></select></div>
-                   <div className="w-1/4"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Poids</label><input type="number" placeholder="kg" value={extWeight} onChange={e=>setExtWeight(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/></div>
-                   <div className="w-auto flex items-end pb-[1px]"><button onClick={handleRegisterManual} disabled={!extName || isLoading} className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-black text-xs uppercase px-3 py-2 disabled:opacity-50">OK</button></div>
-                 </div>
+               <div className="space-y-2 mt-4">
+                 <input type="text" value={activeComp.name} onChange={e=>setActiveComp({...activeComp, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Nom..." />
+                 <div className="grid grid-cols-2 gap-2"><input type="date" value={activeComp.date} onChange={e=>setActiveComp({...activeComp, date: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" /><input type="text" value={activeComp.location} onChange={e=>setActiveComp({...activeComp, location: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white outline-none" placeholder="Ville" /></div>
                </div>
              )}
           </div>
-        )}
 
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1 mb-3 flex items-center justify-between">
-            <span className="flex items-center"><Swords size={12} className="mr-2 text-rose-500"/> Dossiers Combattants ({compCards.length})</span>
-          </h3>
-          <div className="space-y-6">
-            {compCards.map(card => {
-              const canEdit = isStaff || card.userId === currentUser.id;
-              
-              const matches = card.matches && card.matches.length > 0 ? card.matches : [{ 
-                id: `legacy_${Date.now()}`, title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
-                headgear: card.headgear || '', result: card.result || 'En attente' 
-              }];
+          {isStaff && (
+            <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl mb-4 animate-fade-in shadow-lg">
+               <div className="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                 <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center"><UserPlus size={12} className="mr-2"/> Panel d'Engagement</h4>
+                 <div className="flex space-x-1">
+                   <button onClick={() => setRegMode('AUTO')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='AUTO'?'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50':'text-slate-500'}`}><Radar size={10} className="inline mr-1"/> Auto</button>
+                   <button onClick={() => setRegMode('INTERNAL')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='INTERNAL'?'bg-amber-500/20 text-amber-500 border border-amber-500/50':'text-slate-500'}`}>Club</button>
+                   <button onClick={() => setRegMode('EXTERNAL')} className={`text-[9px] font-bold uppercase px-2 py-1 rounded transition-colors ${regMode==='EXTERNAL'?'bg-rose-500/20 text-rose-400 border border-rose-500/50':'text-slate-500'}`}>Libre</button>
+                 </div>
+               </div>
+               
+               {regMode === 'AUTO' ? (
+                 <div className="space-y-3">
+                   <p className="text-[10px] text-slate-400 font-mono leading-tight">Extraction automatique des combattants S.M.G depuis la fédération.</p>
+                   <div className="flex space-x-2">
+                     <div className="flex-1 relative">
+                       <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                       <input type="text" placeholder="ID FFKMDA (ex: 902)" value={ffkmdaId} onChange={e=>setFfkmdaId(e.target.value)} disabled={scanStatus === 'SCANNING'} className="w-full bg-slate-950 border border-cyan-500/30 rounded-lg text-xs py-2 pl-8 pr-2 text-cyan-400 outline-none focus:border-cyan-500 font-mono" />
+                     </div>
+                     <button onClick={executeFFKMDAScan} disabled={!ffkmdaId || scanStatus === 'SCANNING'} className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 px-4 rounded-lg font-black text-xs uppercase disabled:opacity-50 flex items-center">
+                       {scanStatus === 'SCANNING' ? <Activity size={14} className="animate-spin" /> : 'Scanner'}
+                     </button>
+                   </div>
+                   {scanLogs.length > 0 && (
+                     <div className="bg-slate-950 p-2 rounded border border-slate-800 max-h-32 overflow-y-auto text-[9px] font-mono space-y-1">
+                       {scanLogs.map((log, i) => (
+                         <div key={i} className={`${log.includes('ERREUR') || log.includes('Aucun') ? 'text-rose-500' : log.includes('POULE') || log.includes('TERMINÉ') || log.includes('inscrits validés') ? 'text-emerald-400' : 'text-slate-500'}`}>
+                           &gt; {log}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+               ) : regMode === 'INTERNAL' ? (
+                 <div className="flex space-x-2">
+                   <select value={selectedMemberId} onChange={e => setSelectedMemberId(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-amber-500">
+                     <option value="">Sélectionner un membre...</option>
+                     {members.filter(m => !compCards.some(c => c.userId === m.id)).map(m => (<option key={m.id} value={m.id}>{m.name} (Né en {m.birthDate ? new Date(m.birthDate).getFullYear() : '?'})</option>))}
+                   </select>
+                   <button onClick={handleRegisterManual} disabled={!selectedMemberId || isLoading} className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-4 rounded-lg font-black text-xs uppercase disabled:opacity-50">Ajouter</button>
+                 </div>
+               ) : (
+                 <div className="space-y-2">
+                   <input type="text" placeholder="Prénom et Nom..." value={extName} onChange={e=>setExtName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/>
+                   <div className="flex space-x-2">
+                     <div className="w-1/3"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Naissance</label><input type="number" placeholder="Année" value={extBirthYear} onChange={e=>setExtBirthYear(parseInt(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/></div>
+                     <div className="w-1/4"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Sexe</label><select value={extGender} onChange={e=>setExtGender(e.target.value as any)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"><option value="M">M</option><option value="F">F</option></select></div>
+                     <div className="w-1/4"><label className="text-[8px] text-slate-500 uppercase font-bold px-1">Poids</label><input type="number" placeholder="kg" value={extWeight} onChange={e=>setExtWeight(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs p-2 text-white outline-none focus:border-rose-500"/></div>
+                     <div className="w-auto flex items-end pb-[1px]"><button onClick={handleRegisterManual} disabled={!extName || isLoading} className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-black text-xs uppercase px-3 py-2 disabled:opacity-50">OK</button></div>
+                   </div>
+                 </div>
+               )}
+            </div>
+          )}
 
-              return (
-                <div key={card.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-                  <div className="bg-slate-800/50 p-3 flex justify-between items-center relative">
-                    {isStaff && <button onClick={() => handleDeleteCard(card.id)} className="absolute top-3 right-3 text-slate-500 hover:text-rose-500"><Trash2 size={14}/></button>}
-                    <div>
-                      <h4 className="font-black text-lg text-white uppercase tracking-tight">{card.userName}</h4>
-                      <p className="text-[10px] text-amber-500 font-mono font-bold uppercase mt-0.5">{card.category} • {card.weight}kg</p>
+          <div>
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1 mb-3 flex items-center justify-between">
+              <span className="flex items-center"><Swords size={12} className="mr-2 text-rose-500"/> Dossiers Combattants ({compCards.length})</span>
+            </h3>
+            <div className="space-y-6">
+              {compCards.map(card => {
+                const canEdit = isStaff || card.userId === currentUser.id;
+                
+                const matches = card.matches && card.matches.length > 0 ? card.matches : [{ 
+                  id: `legacy_${Date.now()}`, title: 'Combat Unique', area: card.area || '?', matchNum: card.matchNum || 'TBD', 
+                  headgear: card.headgear || '', result: card.result || 'En attente' 
+                }];
+
+                return (
+                  <div key={card.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+                    <div className="bg-slate-800/50 p-3 flex justify-between items-center relative">
+                      {isStaff && <button onClick={() => handleDeleteCard(card.id)} className="absolute top-3 right-3 text-slate-500 hover:text-rose-500"><Trash2 size={14}/></button>}
+                      <div>
+                        <h4 className="font-black text-lg text-white uppercase tracking-tight">{card.userName}</h4>
+                        <p className="text-[10px] text-amber-500 font-mono font-bold uppercase mt-0.5">{card.category} • {card.weight}kg</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-3 bg-slate-900/80">
+                      {matches.map((m: any) => {
+                        const isPendingInfo = m.area === '?' || !m.matchNum || m.matchNum === 'TBD';
+                        const isWin = m.result === 'Victoire';
+                        const isLoss = m.result === 'Défaite';
+
+                        return (
+                          <div key={m.id} className={`p-3 rounded-lg border relative ${isPendingInfo ? 'bg-slate-950/50 border-slate-700/50 border-dashed' : 'bg-slate-950 border-slate-700'}`}>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-xs font-black text-amber-500 uppercase tracking-widest">{m.title}</span>
+                              {isWin && <span className="bg-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded border border-emerald-500/30 flex items-center font-bold uppercase"><CheckCircle size={10} className="mr-1"/> Victoire</span>}
+                              {isLoss && <span className="bg-rose-500/20 text-rose-400 text-[9px] px-2 py-0.5 rounded border border-rose-500/30 flex items-center font-bold uppercase"><XCircle size={10} className="mr-1"/> Défaite</span>}
+                            </div>
+
+                            {canEdit ? (
+                              <>
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                  <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Aire</label><input type="text" value={m.area} onChange={e => handleUpdateMatch(card, m.id, {area: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.area === '?' ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="?" /></div>
+                                  <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">N° Cbt</label><input type="text" value={m.matchNum} onChange={e => handleUpdateMatch(card, m.id, {matchNum: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.matchNum === 'TBD' || !m.matchNum ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="N°" /></div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                  <div>
+                                    <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Couleur (Casque)</label>
+                                    <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                                      <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Rouge'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Rouge' ? 'bg-rose-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Rouge</button>
+                                      <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Bleu'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Bleu' ? 'bg-cyan-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Bleu</button>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Issue</label>
+                                    <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                                      <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Victoire'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Victoire' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><CheckCircle size={12}/></button>
+                                      <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Défaite'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Défaite' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><XCircle size={12}/></button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex justify-around items-center bg-slate-900 p-2 rounded border border-slate-800">
+                                <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Aire</span><span className={`text-xs font-bold ${m.area === '?' ? 'text-amber-500' : 'text-white'}`}>{m.area || '-'}</span></div>
+                                <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Combat</span><span className={`text-xs font-bold ${m.matchNum === 'TBD' ? 'text-amber-500' : 'text-white'}`}>{m.matchNum || '-'}</span></div>
+                                <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Casque</span><span className={`text-xs font-bold ${m.headgear==='Rouge'?'text-rose-500':m.headgear==='Bleu'?'text-cyan-500':'text-slate-500'}`}>{m.headgear || '?'}</span></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {canEdit && (
+                         <button onClick={() => addMatchToCard(card)} className="w-full py-2 bg-slate-900 border border-slate-700 border-dashed rounded-lg text-[10px] text-slate-400 uppercase font-bold tracking-widest hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center">
+                           <Plus size={12} className="mr-1" /> Ajouter un combat à la timeline
+                         </button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="p-3 space-y-3 bg-slate-900/80">
-                    {matches.map((m: any) => {
-                      const isPendingInfo = m.area === '?' || !m.matchNum || m.matchNum === 'TBD';
-                      const isWin = m.result === 'Victoire';
-                      const isLoss = m.result === 'Défaite';
-
-                      return (
-                        <div key={m.id} className={`p-3 rounded-lg border relative ${isPendingInfo ? 'bg-slate-950/50 border-slate-700/50 border-dashed' : 'bg-slate-950 border-slate-700'}`}>
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="text-xs font-black text-amber-500 uppercase tracking-widest">{m.title}</span>
-                            {isWin && <span className="bg-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded border border-emerald-500/30 flex items-center font-bold uppercase"><CheckCircle size={10} className="mr-1"/> Victoire</span>}
-                            {isLoss && <span className="bg-rose-500/20 text-rose-400 text-[9px] px-2 py-0.5 rounded border border-rose-500/30 flex items-center font-bold uppercase"><XCircle size={10} className="mr-1"/> Défaite</span>}
-                          </div>
-
-                          {canEdit ? (
-                            <>
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">Aire</label><input type="text" value={m.area} onChange={e => handleUpdateMatch(card, m.id, {area: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.area === '?' ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="?" /></div>
-                                <div><label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block">N° Cbt</label><input type="text" value={m.matchNum} onChange={e => handleUpdateMatch(card, m.id, {matchNum: e.target.value})} className={`w-full bg-slate-900 border rounded p-1.5 text-xs font-bold text-center outline-none focus:border-cyan-500 ${m.matchNum === 'TBD' || !m.matchNum ? 'border-amber-500/50 text-amber-500' : 'border-slate-600 text-white'}`} placeholder="N°" /></div>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div>
-                                  <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Couleur (Casque)</label>
-                                  <div className="flex rounded-lg overflow-hidden border border-slate-700">
-                                    <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Rouge'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Rouge' ? 'bg-rose-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Rouge</button>
-                                    <button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Bleu'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 transition-colors ${m.headgear === 'Bleu' ? 'bg-cyan-600 text-white shadow-inner' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Bleu</button>
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="text-[8px] text-slate-500 font-bold uppercase mb-1 block text-center">Issue</label>
-                                  <div className="flex rounded-lg overflow-hidden border border-slate-700">
-                                    <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Victoire'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Victoire' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><CheckCircle size={12}/></button>
-                                    <button onClick={() => handleUpdateMatch(card, m.id, {result: 'Défaite'})} className={`flex-1 flex justify-center items-center text-[10px] font-black py-1.5 transition-colors ${m.result === 'Défaite' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}><XCircle size={12}/></button>
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex justify-around items-center bg-slate-900 p-2 rounded border border-slate-800">
-                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Aire</span><span className={`text-xs font-bold ${m.area === '?' ? 'text-amber-500' : 'text-white'}`}>{m.area || '-'}</span></div>
-                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Combat</span><span className={`text-xs font-bold ${m.matchNum === 'TBD' ? 'text-amber-500' : 'text-white'}`}>{m.matchNum || '-'}</span></div>
-                              <div className="text-center"><span className="block text-[8px] text-slate-500 uppercase">Casque</span><span className={`text-xs font-bold ${m.headgear==='Rouge'?'text-rose-500':m.headgear==='Bleu'?'text-cyan-500':'text-slate-500'}`}>{m.headgear || '?'}</span></div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {canEdit && (
-                       <button onClick={() => addMatchToCard(card)} className="w-full py-2 bg-slate-900 border border-slate-700 border-dashed rounded-lg text-[10px] text-slate-400 uppercase font-bold tracking-widest hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center">
-                         <Plus size={12} className="mr-1" /> Ajouter un combat à la timeline
-                       </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -396,48 +398,50 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
   // LIST VIEW - Fix Scroll also
   return (
-    <div className="p-4 pb-32 min-h-screen flex flex-col max-w-lg mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2>
-          <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Circuit de Compétition</span>
-        </div>
-        {isStaff && (
-           <button onClick={() => { setView('DETAIL'); setRegMode('AUTO'); }} className="bg-cyan-500/20 text-cyan-400 p-2 rounded-xl border border-cyan-500/50 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]">
-             <Radar size={20} />
-           </button>
-        )}
-      </div>
-
-      <div className="flex-1 space-y-3 pb-10">
-        {isLoading && <p className="text-center text-amber-500 text-xs font-mono animate-pulse">RECHERCHE D'ÉVÉNEMENTS...</p>}
-        {competitions.map(comp => {
-          const isUpcoming = new Date(comp.date) >= new Date();
-          return (
-            <button key={comp.id} onClick={() => { setActiveComp(comp); setView('DETAIL'); }} className="w-full text-left focus:outline-none">
-              <FuturisticCard borderColor={isUpcoming ? 'amber' : 'slate'} className={`hover:border-amber-500/50 transition-colors group ${!isUpcoming && 'opacity-70'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded border ${isUpcoming ? 'bg-amber-950 border-amber-900' : 'bg-slate-900 border-slate-800'}`}><Trophy size={16} className={isUpcoming ? "text-amber-500" : "text-slate-500"} /></div>
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-100">{comp.name}</h4>
-                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{new Date(comp.date).toLocaleDateString('fr-FR')} • {comp.location}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-500 transition-colors" />
-                </div>
-              </FuturisticCard>
-            </button>
-          )
-        })}
-
-        {isStaff && competitions.length === 0 && !isLoading && (
-          <div className="text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-            <Radar size={32} className="mx-auto text-slate-600 mb-3" />
-            <p className="text-xs text-slate-400 font-mono mb-4">Aucune compétition détectée.</p>
-            <button onClick={() => { setView('DETAIL'); setRegMode('AUTO'); }} className="bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-cyan-600/40 transition-all">Scanner la FFKMDA</button>
+    <div className="h-full w-full overflow-y-auto p-4 pb-32">
+      <div className="flex flex-col max-w-lg mx-auto h-full">
+        <div className="flex justify-between items-center mb-6 shrink-0">
+          <div>
+            <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2>
+            <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Circuit de Compétition</span>
           </div>
-        )}
+          {isStaff && (
+             <button onClick={() => { setView('DETAIL'); setRegMode('AUTO'); }} className="bg-cyan-500/20 text-cyan-400 p-2 rounded-xl border border-cyan-500/50 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]">
+               <Radar size={20} />
+             </button>
+          )}
+        </div>
+
+        <div className="flex-1 space-y-3 pb-10">
+          {isLoading && <p className="text-center text-amber-500 text-xs font-mono animate-pulse">RECHERCHE D'ÉVÉNEMENTS...</p>}
+          {competitions.map(comp => {
+            const isUpcoming = new Date(comp.date) >= new Date();
+            return (
+              <button key={comp.id} onClick={() => { setActiveComp(comp); setView('DETAIL'); }} className="w-full text-left focus:outline-none">
+                <FuturisticCard borderColor={isUpcoming ? 'amber' : 'slate'} className={`hover:border-amber-500/50 transition-colors group ${!isUpcoming && 'opacity-70'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded border ${isUpcoming ? 'bg-amber-950 border-amber-900' : 'bg-slate-900 border-slate-800'}`}><Trophy size={16} className={isUpcoming ? "text-amber-500" : "text-slate-500"} /></div>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-100">{comp.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{new Date(comp.date).toLocaleDateString('fr-FR')} • {comp.location}</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-500 transition-colors" />
+                  </div>
+                </FuturisticCard>
+              </button>
+            )
+          })}
+
+          {isStaff && competitions.length === 0 && !isLoading && (
+            <div className="text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+              <Radar size={32} className="mx-auto text-slate-600 mb-3" />
+              <p className="text-xs text-slate-400 font-mono mb-4">Aucune compétition détectée.</p>
+              <button onClick={() => { setView('DETAIL'); setRegMode('AUTO'); }} className="bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-cyan-600/40 transition-all">Scanner la FFKMDA</button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -82,77 +82,79 @@ export default function Calendar({ currentUser }: { currentUser: User }) {
   };
 
   return (
-    <div className="p-4 pb-32 min-h-screen max-w-lg mx-auto">
-      {/* Header & Add Button */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Agenda</h2>
-          <span className="text-[10px] text-cyan-500 font-mono uppercase tracking-widest leading-none">Planning du Club</span>
+    <div className="h-full w-full overflow-y-auto p-4 pb-32">
+      <div className="max-w-lg mx-auto">
+        {/* Header & Add Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Agenda</h2>
+            <span className="text-[10px] text-cyan-500 font-mono uppercase tracking-widest leading-none">Planning du Club</span>
+          </div>
+          {isStaff && (
+            <button onClick={() => setShowForm(!showForm)} className="bg-cyan-500/20 text-cyan-400 p-2 rounded-xl border border-cyan-500/50 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]">
+              <Plus size={20} />
+            </button>
+          )}
         </div>
-        {isStaff && (
-          <button onClick={() => setShowForm(!showForm)} className="bg-cyan-500/20 text-cyan-400 p-2 rounded-xl border border-cyan-500/50 hover:bg-cyan-500/30 transition-colors shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]">
-            <Plus size={20} />
-          </button>
-        )}
-      </div>
 
-      {/* Formulaire d'ajout */}
-      {showForm && isStaff && (
-        <form onSubmit={handleAdd} className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-6 space-y-3 shadow-lg animate-fade-in">
-          <input required type="text" placeholder="Titre de l'événement..." value={title} onChange={e=>setTitle(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
-          <div className="grid grid-cols-2 gap-2">
-            <input required type="date" value={date} onChange={e=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
-            <input type="time" value={time} onChange={e=>setTime(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
-          </div>
-          <input type="text" placeholder="Lieu (optionnel)" value={location} onChange={e=>setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
-          <select value={type} onChange={e=>setType(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500">
-            {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <button disabled={isLoading} type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black uppercase text-xs py-3 rounded-lg transition-colors">Enregistrer</button>
-        </form>
-      )}
-
-      {/* Liste des Événements */}
-      <div className="space-y-4">
-        {events.length === 0 && !isLoading && (
-          <div className="text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-            <CalendarIcon size={32} className="mx-auto text-slate-600 mb-3" />
-            <p className="text-xs text-slate-400 font-mono">Aucun événement à venir.</p>
-          </div>
+        {/* Formulaire d'ajout */}
+        {showForm && isStaff && (
+          <form onSubmit={handleAdd} className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-6 space-y-3 shadow-lg animate-fade-in">
+            <input required type="text" placeholder="Titre de l'événement..." value={title} onChange={e=>setTitle(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
+            <div className="grid grid-cols-2 gap-2">
+              <input required type="date" value={date} onChange={e=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
+              <input type="time" value={time} onChange={e=>setTime(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
+            </div>
+            <input type="text" placeholder="Lieu (optionnel)" value={location} onChange={e=>setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500" />
+            <select value={type} onChange={e=>setType(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none focus:border-cyan-500">
+              {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button disabled={isLoading} type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black uppercase text-xs py-3 rounded-lg transition-colors">Enregistrer</button>
+          </form>
         )}
-        
-        {events.map(ev => (
-          <div key={ev.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition-colors">
-            {isStaff && (
-              <button onClick={() => handleDelete(ev.id)} className="absolute top-3 right-3 text-slate-600 hover:text-rose-500 transition-colors">
-                <Trash2 size={16} />
-              </button>
-            )}
-            <div className="pr-8 mb-2">
-              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border mb-2 ${getTypeColor(ev.type)}`}>
-                {ev.type}
-              </span>
-              <h3 className="text-white font-bold text-lg leading-tight">{ev.title}</h3>
+
+        {/* Liste des Événements */}
+        <div className="space-y-4">
+          {events.length === 0 && !isLoading && (
+            <div className="text-center p-8 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+              <CalendarIcon size={32} className="mx-auto text-slate-600 mb-3" />
+              <p className="text-xs text-slate-400 font-mono">Aucun événement à venir.</p>
             </div>
-            
-            <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-800/50">
-              <p className="text-xs text-slate-400 flex items-center font-mono">
-                <CalendarIcon size={12} className="mr-2 text-cyan-500/70" />
-                {new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </p>
-              {ev.time && (
-                <p className="text-xs text-slate-400 flex items-center font-mono">
-                  <Clock size={12} className="mr-2 text-cyan-500/70" /> {ev.time}
-                </p>
+          )}
+          
+          {events.map(ev => (
+            <div key={ev.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition-colors">
+              {isStaff && (
+                <button onClick={() => handleDelete(ev.id)} className="absolute top-3 right-3 text-slate-600 hover:text-rose-500 transition-colors">
+                  <Trash2 size={16} />
+                </button>
               )}
-              {ev.location && (
+              <div className="pr-8 mb-2">
+                <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border mb-2 ${getTypeColor(ev.type)}`}>
+                  {ev.type}
+                </span>
+                <h3 className="text-white font-bold text-lg leading-tight">{ev.title}</h3>
+              </div>
+              
+              <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-800/50">
                 <p className="text-xs text-slate-400 flex items-center font-mono">
-                  <MapPin size={12} className="mr-2 text-cyan-500/70" /> {ev.location}
+                  <CalendarIcon size={12} className="mr-2 text-cyan-500/70" />
+                  {new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
-              )}
+                {ev.time && (
+                  <p className="text-xs text-slate-400 flex items-center font-mono">
+                    <Clock size={12} className="mr-2 text-cyan-500/70" /> {ev.time}
+                  </p>
+                )}
+                {ev.location && (
+                  <p className="text-xs text-slate-400 flex items-center font-mono">
+                    <MapPin size={12} className="mr-2 text-cyan-500/70" /> {ev.location}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
