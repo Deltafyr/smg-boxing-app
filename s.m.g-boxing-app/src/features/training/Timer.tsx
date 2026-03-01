@@ -67,7 +67,6 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
     }
   };
 
-  // Moteur basique pour la démo, on saute l'audio WebAPI pour éviter les erreurs de lecture
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isRunning) {
@@ -147,7 +146,7 @@ const TimerModule = ({ id, onRemove, isSole }: { id: string, onRemove?: () => vo
 
 export default function TimerPage() {
   return (
-    <div className="w-full min-h-[100dvh] overflow-y-auto bg-[#020617] p-4 pb-40">
+    <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
       <div className="max-w-lg mx-auto flex flex-col h-full">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic uppercase">Chrono</h2><span className="text-[10px] text-rose-500 font-mono uppercase tracking-widest">Maître du Temps</span></div>

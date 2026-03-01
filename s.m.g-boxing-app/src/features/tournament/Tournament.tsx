@@ -28,7 +28,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
   if (!currentUser) return null;
 
   const [view, setView] = useState<'LIST' | 'DETAIL'>('LIST');
-  const [detailTab, setDetailTab] = useState<'CARDS' | 'TIMELINE'>('CARDS'); // NOUVEAU TAB TIMELINE
+  const [detailTab, setDetailTab] = useState<'CARDS' | 'TIMELINE'>('CARDS');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [fightCards, setFightCards] = useState<any[]>([]);
   const [members, setMembers] = useState<User[]>([]);
@@ -151,10 +151,27 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     try { await deleteDoc(doc(db, 'fightCards', cardId)); setFightCards(fightCards.filter(c => c.id !== cardId)); } catch(e){}
   };
 
-  const handleUpdateMatch = async (card: any, matchId: string, fields: any) => {
-    let currentMatches = card.matches || [{ id: `m_${Date.now()}`, title: 'Combat Principal', area: card.area || '?', matchNum: card.matchNum || 'TBD', headgear: card.headgear || '', result: card.result || 'En attente' }];
+  const handleUpdateMatch = async (cardId: string, matchId: string, fields: any) => {
+    const card = fightCards.find(c => c.id === cardId);
+    if (!card) return;
+
+    let currentMatches = card.matches || [{ id: `legacy_${Date.now()}`, title: 'Combat Principal', area: card.area || '?', matchNum: card.matchNum || 'TBD', headgear: card.headgear || '', result: card.result || 'En attente' }];
     const updatedMatches = currentMatches.map((m: any) => m.id === matchId ? { ...m, ...fields } : m);
-    try { await updateDoc(doc(db, 'fightCards', card.id), { matches: updatedMatches }); setFightCards(fightCards.map(c => c.id === card.id ? { ...c, matches: updatedMatches } : c)); } catch(e) {}
+    
+    try { 
+      await updateDoc(doc(db, 'fightCards', card.id), { matches: updatedMatches }); 
+      setFightCards(fightCards.map(c => c.id === card.id ? { ...c, matches: updatedMatches } : c)); 
+    } catch(e) {}
+  };
+
+  const addMatchToCard = async (card: any) => {
+    const currentMatches = card.matches || [];
+    const newMatch = { id: `m_${Date.now()}`, title: `Combat Sup. ${currentMatches.length + 1}`, area: '?', matchNum: 'TBD', headgear: '', result: 'En attente' };
+    const updatedMatches = [...currentMatches, newMatch];
+    try {
+      await updateDoc(doc(db, 'fightCards', card.id), { matches: updatedMatches, estimatedFights: updatedMatches.length });
+      setFightCards(fightCards.map(c => c.id === card.id ? { ...c, matches: updatedMatches, estimatedFights: updatedMatches.length } : c));
+    } catch(e) {}
   };
 
   if (view === 'DETAIL' && activeComp) {
@@ -163,14 +180,19 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
     // Extraction et tri pour la Timeline Globale
     const allMatches = compCards.flatMap(c => (c.matches || []).map((m: any) => ({ ...m, fighterName: c.userName, fighterCat: c.category, cardId: c.id })));
     const sortedMatches = allMatches.sort((a, b) => {
-      const aNum = parseInt(a.matchNum) || 999;
-      const bNum = parseInt(b.matchNum) || 999;
-      return aNum - bNum;
+      const aNum = parseInt(a.matchNum);
+      const bNum = parseInt(b.matchNum);
+      const aValid = !isNaN(aNum);
+      const bValid = !isNaN(bNum);
+      if (aValid && bValid) return aNum - bNum;
+      if (aValid && !bValid) return -1;
+      if (!aValid && bValid) return 1;
+      return 0;
     });
 
-    // SCROLL FIX ABSOLU: min-h-[100dvh] avec padding bottom massif
+    // SCROLL FIX ABSOLU: flex-1 overflow-y-auto w-full h-full pb-32
     return (
-      <div className="w-full min-h-[100dvh] overflow-y-auto bg-[#020617] p-4 pb-40">
+      <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
         <div className="max-w-lg mx-auto space-y-6">
           <button onClick={() => setView('LIST')} className="text-slate-500 text-xs font-bold uppercase hover:text-amber-500 transition-colors">&larr; Retour aux compétitions</button>
           
@@ -185,8 +207,8 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
           {/* ONGLETS : FICHES VS TIMELINE */}
           <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-            <button onClick={() => setDetailTab('CARDS')} className={`flex-1 py-2 text-xs font-black uppercase rounded transition-all flex items-center justify-center ${detailTab === 'CARDS' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Swords size={14} className="mr-2"/> Fiches ({compCards.length})</button>
-            <button onClick={() => setDetailTab('TIMELINE')} className={`flex-1 py-2 text-xs font-black uppercase rounded transition-all flex items-center justify-center ${detailTab === 'TIMELINE' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><ListOrdered size={14} className="mr-2"/> Timeline</button>
+            <button onClick={() => setDetailTab('CARDS')} className={`flex-1 py-2 text-xs font-black uppercase rounded transition-all flex items-center justify-center ${detailTab === 'CARDS' ? 'bg-cyan-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Swords size={14} className="mr-2"/> Paramétrage ({compCards.length})</button>
+            <button onClick={() => setDetailTab('TIMELINE')} className={`flex-1 py-2 text-xs font-black uppercase rounded transition-all flex items-center justify-center ${detailTab === 'TIMELINE' ? 'bg-rose-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Activity size={14} className="mr-2"/> Live ({allMatches.length})</button>
           </div>
 
           {detailTab === 'CARDS' && (
@@ -238,20 +260,29 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                         const isWin = m.result === 'Victoire'; const isLoss = m.result === 'Défaite';
                         return (
                           <div key={m.id} className="p-3 rounded-lg border bg-slate-950 border-slate-700">
-                            <div className="flex justify-between items-center mb-3">
-                              <span className="text-xs font-black text-amber-500 uppercase tracking-widest">{m.title}</span>
+                            <div className="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                              <span className="text-xs font-black text-cyan-500 uppercase tracking-widest">{m.title}</span>
                               {isWin && <span className="text-emerald-500 text-[10px] font-bold uppercase flex items-center"><CheckCircle size={10} className="mr-1"/> Victoire</span>}
                               {isLoss && <span className="text-rose-500 text-[10px] font-bold uppercase flex items-center"><XCircle size={10} className="mr-1"/> Défaite</span>}
                             </div>
                             {canEdit ? (
                               <>
-                                <div className="grid grid-cols-2 gap-2 mb-2">
-                                  <div><label className="text-[8px] text-slate-500 uppercase block">Aire</label><input type="text" value={m.area} onChange={e => handleUpdateMatch(card, m.id, {area: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-center text-white" /></div>
-                                  <div><label className="text-[8px] text-slate-500 uppercase block">N° Cbt</label><input type="text" value={m.matchNum} onChange={e => handleUpdateMatch(card, m.id, {matchNum: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-1 text-xs text-center text-white" /></div>
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                  <div>
+                                    <label className="text-[8px] text-slate-500 uppercase block mb-1">Aire (Numéro)</label>
+                                    <input type="number" value={m.area === '?' ? '' : m.area} onChange={e => handleUpdateMatch(card.id, m.id, {area: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-1.5 text-xs text-center text-white outline-none focus:border-cyan-500" placeholder="N°" />
+                                  </div>
+                                  <div>
+                                    <label className="text-[8px] text-slate-500 uppercase block mb-1">Combat (Numéro)</label>
+                                    <input type="number" value={m.matchNum === 'TBD' ? '' : m.matchNum} onChange={e => handleUpdateMatch(card.id, m.id, {matchNum: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded p-1.5 text-xs text-center text-white outline-none focus:border-cyan-500" placeholder="N°" />
+                                  </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="flex rounded overflow-hidden border border-slate-700"><button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Rouge'})} className={`flex-1 text-[9px] font-black uppercase py-1 ${m.headgear === 'Rouge' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500'}`}>Rouge</button><button onClick={() => handleUpdateMatch(card, m.id, {headgear: 'Bleu'})} className={`flex-1 text-[9px] font-black uppercase py-1 ${m.headgear === 'Bleu' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-500'}`}>Bleu</button></div>
-                                  <div className="flex rounded overflow-hidden border border-slate-700"><button onClick={() => handleUpdateMatch(card, m.id, {result: 'Victoire'})} className={`flex-1 flex justify-center py-1 ${m.result === 'Victoire' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500'}`}><CheckCircle size={12}/></button><button onClick={() => handleUpdateMatch(card, m.id, {result: 'Défaite'})} className={`flex-1 flex justify-center py-1 ${m.result === 'Défaite' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500'}`}><XCircle size={12}/></button></div>
+                                <div>
+                                  <label className="text-[8px] text-slate-500 uppercase block mb-1 text-center">Couleur (Casque)</label>
+                                  <div className="flex rounded overflow-hidden border border-slate-700">
+                                    <button onClick={() => handleUpdateMatch(card.id, m.id, {headgear: 'Rouge'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 ${m.headgear === 'Rouge' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Rouge</button>
+                                    <button onClick={() => handleUpdateMatch(card.id, m.id, {headgear: 'Bleu'})} className={`flex-1 text-[10px] font-black uppercase py-1.5 ${m.headgear === 'Bleu' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'}`}>Bleu</button>
+                                  </div>
                                 </div>
                               </>
                             ) : (
@@ -264,6 +295,12 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
                           </div>
                         );
                       })}
+
+                      {canEdit && (
+                         <button onClick={() => addMatchToCard(card)} className="w-full py-2 bg-slate-900 border border-slate-700 border-dashed rounded-lg text-[10px] text-slate-400 uppercase font-bold tracking-widest hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center">
+                           <Plus size={12} className="mr-1" /> Ajouter un combat pour ce combattant
+                         </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -272,22 +309,32 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
           )}
 
           {detailTab === 'TIMELINE' && (
-            <div className="space-y-3 animate-fade-in relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
+            <div className="space-y-4 animate-fade-in relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
               {sortedMatches.length === 0 ? <p className="text-center text-slate-500 text-xs font-mono py-8">Aucun combat programmé.</p> : sortedMatches.map(m => (
                 <div key={`${m.cardId}-${m.id}`} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#020617] bg-slate-900 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                    <span className="text-xs font-black">{m.matchNum !== 'TBD' ? m.matchNum : '?'}</span>
+                    <span className="text-xs font-black">{m.matchNum !== 'TBD' && m.matchNum !== '' ? m.matchNum : '?'}</span>
                   </div>
                   <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-800 bg-slate-900/80 backdrop-blur shadow-lg">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-[9px] font-black uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">Aire {m.area}</span>
+                      <span className="text-[9px] font-black uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Aire {m.area || '?'}</span>
                       <span className="text-[9px] text-slate-400 font-mono">{m.title}</span>
                     </div>
                     <h4 className="font-bold text-white text-sm uppercase leading-tight">{m.fighterName}</h4>
                     <p className="text-[10px] text-cyan-500 mt-0.5">{m.fighterCat}</p>
-                    <div className="mt-2 flex justify-between items-center pt-2 border-t border-slate-800/50">
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${m.headgear === 'Rouge' ? 'bg-rose-500/20 text-rose-500' : m.headgear === 'Bleu' ? 'bg-cyan-500/20 text-cyan-500' : 'bg-slate-800 text-slate-500'}`}>{m.headgear || 'Casque ?'}</span>
-                      {m.result !== 'En attente' && <span className={`text-[10px] font-black uppercase ${m.result === 'Victoire' ? 'text-emerald-500' : 'text-rose-500'}`}>{m.result}</span>}
+                    
+                    <div className="mt-3 flex justify-between items-center pt-3 border-t border-slate-800/50">
+                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${m.headgear === 'Rouge' ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30' : m.headgear === 'Bleu' ? 'bg-cyan-500/20 text-cyan-500 border border-cyan-500/30' : 'bg-slate-800 text-slate-500'}`}>{m.headgear || 'Casque ?'}</span>
+                      
+                      {/* BOUTONS LIVE TRACKING (VICTOIRE/DEFAITE) */}
+                      {isStaff ? (
+                        <div className="flex space-x-1">
+                          <button onClick={() => handleUpdateMatch(m.cardId, m.id, {result: 'Victoire'})} className={`p-1.5 rounded transition-colors ${m.result === 'Victoire' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-emerald-900/50 hover:text-emerald-500'}`}><CheckCircle size={14}/></button>
+                          <button onClick={() => handleUpdateMatch(m.cardId, m.id, {result: 'Défaite'})} className={`p-1.5 rounded transition-colors ${m.result === 'Défaite' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-rose-900/50 hover:text-rose-500'}`}><XCircle size={14}/></button>
+                        </div>
+                      ) : (
+                        m.result !== 'En attente' && <span className={`text-[10px] font-black uppercase flex items-center ${m.result === 'Victoire' ? 'text-emerald-500' : 'text-rose-500'}`}>{m.result === 'Victoire' ? <CheckCircle size={12} className="mr-1"/> : <XCircle size={12} className="mr-1"/>} {m.result}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -301,7 +348,7 @@ export default function Tournament({ currentUser }: { currentUser: User }) {
 
   // VUE LISTE (SCROLL FIX EGALEMENT)
   return (
-    <div className="w-full min-h-[100dvh] overflow-y-auto bg-[#020617] p-4 pb-40">
+    <div className="flex-1 overflow-y-auto w-full h-full p-4 pb-32">
       <div className="max-w-lg mx-auto flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <div><h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Arène</h2><span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest leading-none">Circuit de Compétition</span></div>
