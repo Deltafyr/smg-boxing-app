@@ -4,7 +4,8 @@ import { db } from '../lib/firebase';
 import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, Swords } from 'lucide-react';
 import { User } from '../types';
 
-export default function Dashboard({ currentUser, setView }: any) {
+export default function Dashboard(props: any) {
+  const { currentUser } = props;
   const [showPalmares, setShowPalmares] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
@@ -57,13 +58,24 @@ export default function Dashboard({ currentUser, setView }: any) {
     }
   };
 
-  // NAVEGATION HELPER
+  // NAVEGATION HELPER ABSOLU
   const handleNav = (target: string) => {
-    if (setView) {
-      setView(target);
-    } else {
-      // Fallback au cas où l'app utilise un Event global
-      window.dispatchEvent(new CustomEvent('navigate', { detail: target }));
+    // 1. On essaie d'abord les props les plus courantes
+    if (props.setView) props.setView(target);
+    else if (props.setCurrentView) props.setCurrentView(target);
+    else if (props.setActiveTab) props.setActiveTab(target);
+    else if (props.setTab) props.setTab(target);
+    else if (props.navigate) props.navigate(target);
+    else if (props.onNavigate) props.onNavigate(target);
+    // 2. Si aucune prop ne correspond, on utilise la force brute : simulation de clic sur la barre de navigation en bas
+    else {
+      const navButtons = document.querySelectorAll('nav button, div[class*="bottom"] button');
+      navButtons.forEach((btn: any) => {
+        const text = btn.innerText.toLowerCase();
+        if (target === 'TIMER' && (text.includes('chrono') || text.includes('timer'))) btn.click();
+        if (target === 'AGENDA' && (text.includes('agenda') || text.includes('calend'))) btn.click();
+        if (target === 'TOURNAMENT' && (text.includes('arène') || text.includes('tournoi') || text.includes('compét'))) btn.click();
+      });
     }
   };
 
