@@ -1,96 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { AppRoute, User, News } from '../types';
-import FuturisticCard from '../components/ui/FuturisticCard';
-import { Timer, Trophy, Calendar, User as UserIcon, Send, Megaphone } from 'lucide-react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { User } from '../../types';
+import { Trophy, Calendar as CalendarIcon, Medal, Star, Activity, Clock } from 'lucide-react';
 
-export default function Home({ onNavigate, currentUser }: { onNavigate: (r: AppRoute)=>void, currentUser: User | null }) {
-  const [feed, setFeed] = useState<News[]>([]); const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false); const [newsType, setNewsType] = useState<'info'|'poll'>('info');
-  const [title, setTitle] = useState(''); const [content, setContent] = useState(''); const [options, setOptions] = useState(['Oui', 'Non']);
+export default function Dashboard({ currentUser }: { currentUser: User }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [palmares, setPalmares] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch Agenda
+        const qAgenda = collection(db, 'agenda');
+        const snapAgenda = await getDocs(qAgenda);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const loadedEvents: any[] = [];
+        snapAgenda.forEach(d => {
+          const data = d.data();
+          const eventDate = new Date(data.date);
+          eventDate.setHours(0,0,0,0);
+          if (eventDate >= today) loadedEvents.push({ id: d.id, ...data });
+        });
+        // 3 prochains événements
+        setEvents(loadedEvents.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 3)); 
 
-  useEffect(() => { fetchFeed(); }, []);
-  const fetchFeed = async () => {
-    setIsLoading(true);
-    try { const snap = await getDocs(collection(db, 'news')); const items: News[] = []; snap.forEach(d => items.push({ id: d.id, ...d.data() } as News)); setFeed(items.sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime())); }
-    catch (e) {} setIsLoading(false);
-  };
+        // Fetch Palmarès
+        const qPalmares = collection(db, 'palmares');
+        const snapPalmares = await getDocs(qPalmares);
+        const loadedPalmares: any[] = [];
+        snapPalmares.forEach(d => loadedPalmares.push({ id: d.id, ...d.data() }));
+        // 5 dernières médailles
+        setPalmares(loadedPalmares.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)); 
 
-  const handlePost = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!title || !currentUser) return; setIsLoading(true);
-    try {
-      const newItem: any = { type: newsType, title, content, author: currentUser.name, date: new Date().toISOString() };
-      if (newsType === 'poll') newItem.options = options.filter(o => o.trim() !== '').map(text => ({ text, votes: [] }));
-      const docRef = await addDoc(collection(db, 'news'), newItem);
-      setFeed([{ id: docRef.id, ...newItem }, ...feed]); setShowForm(false); setTitle(''); setContent(''); setOptions(['Oui', 'Non']);
-    } catch (e) { alert('Erreur'); } setIsLoading(false);
-  };
+      } catch (e) {
+        console.error(e);
+      }
+      setIsLoading(false);
+    };
+    fetchDashboardData();
+  }, []);
 
-  const handleVote = async (newsId: string, optionIndex: number) => {
-    if (!currentUser) return;
-    const newsItem = feed.find(n => n.id === newsId); if (!newsItem || !newsItem.options) return;
-    if (newsItem.options.some(o => o.votes.includes(currentUser.id))) return;
-    const newOptions = [...newsItem.options]; newOptions[optionIndex].votes.push(currentUser.id);
-    try { await updateDoc(doc(db, 'news', newsId), { options: newOptions }); setFeed(feed.map(n => n.id === newsId ? { ...n, options: newOptions } : n)); } catch (e) {}
+  const getTypeColor = (t: string) => {
+    switch(t) {
+      case 'Compétition': return 'text-rose-500 border-rose-500/30 bg-rose-500/10';
+      case 'Stage': return 'text-amber-500 border-amber-500/30 bg-amber-500/10';
+      case 'Anniversaire': return 'text-purple-500 border-purple-500/30 bg-purple-500/10';
+      case 'Entraînement': return 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10';
+      default: return 'text-cyan-500 border-cyan-500/30 bg-cyan-500/10';
+    }
   };
 
   return (
-    <div className="p-4 space-y-6 pb-24 max-w-lg mx-auto">
-      <div className="flex flex-col items-center justify-center py-4 space-y-3 relative">
-        <button onClick={() => onNavigate(AppRoute.PROFILE)} className="absolute top-2 right-0 flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-400 p-3 rounded-full shadow-lg transition-colors"><UserIcon size={18}/></button>
-        <div className="w-24 h-24 bg-slate-950 rounded-full border border-slate-800 flex items-center justify-center shadow-lg"><img src="/logo.png?v=2" alt="SMG" className="w-full h-full object-contain p-2"/></div>
-        <div className="text-center"><h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-rose-500">S.M.G BOXING</h1></div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <button onClick={() => onNavigate(AppRoute.TIMER)} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-center hover:border-cyan-500 transition-colors group"><Timer className="text-cyan-500 mb-1 group-hover:scale-110 transition-transform" size={24} /><span className="text-[9px] font-black uppercase text-slate-400">Chrono</span></button>
-        <button onClick={() => onNavigate(AppRoute.TOURNAMENT)} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-center hover:border-rose-500 transition-colors group"><Trophy className="text-rose-500 mb-1 group-hover:scale-110 transition-transform" size={24} /><span className="text-[9px] font-black uppercase text-slate-400">Arène</span></button>
-        <button onClick={() => onNavigate(AppRoute.CALENDAR)} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col items-center justify-center hover:border-purple-500 transition-colors group"><Calendar className="text-purple-500 mb-1 group-hover:scale-110 transition-transform" size={24} /><span className="text-[9px] font-black uppercase text-slate-400">Agenda</span></button>
-      </div>
-      <div className="mt-8 space-y-4">
-        <div className="flex justify-between items-end border-b border-slate-800 pb-2"><h3 className="text-sm font-black text-slate-200 uppercase tracking-widest flex items-center"><Megaphone size={14} className="mr-2 text-amber-500"/> Comm Center</h3>{isStaff && (<button onClick={() => setShowForm(!showForm)} className="text-[10px] text-amber-500 font-bold uppercase hover:underline">{showForm ? 'Fermer' : 'Nouveau'}</button>)}</div>
-        {isStaff && showForm && (
-          <FuturisticCard borderColor="slate" className="animate-fade-in bg-slate-900/80">
-            <form onSubmit={handlePost} className="space-y-3">
-              <div className="flex space-x-2"><button type="button" onClick={() => setNewsType('info')} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded ${newsType === 'info' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-500'}`}>Information</button><button type="button" onClick={() => setNewsType('poll')} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded ${newsType === 'poll' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-500'}`}>Sondage</button></div>
-              <input type="text" placeholder="Titre..." value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none" required />
-              {newsType === 'info' && <textarea placeholder="Message..." value={content} onChange={e => setContent(e.target.value)} rows={3} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none" required />}
-              {newsType === 'poll' && <div className="space-y-2"><input type="text" value={options[0]} onChange={e => setOptions([e.target.value, options[1]])} placeholder="Option 1" className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none" required /><input type="text" value={options[1]} onChange={e => setOptions([options[0], e.target.value])} placeholder="Option 2" className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white text-xs outline-none" required /></div>}
-              <button type="submit" disabled={isLoading} className="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded text-xs font-bold flex items-center justify-center"><Send size={12} className="mr-2"/> Diffuser</button>
-            </form>
-          </FuturisticCard>
-        )}
-        <div className="space-y-4">
-          {isLoading && <p className="text-center text-slate-500 text-xs font-mono py-4 animate-pulse">Chargement flux...</p>}
-          {!isLoading && feed.length === 0 && <p className="text-center text-slate-600 text-xs italic py-4">Aucune communication.</p>}
-          {feed.map(item => {
-            const hasVoted = currentUser ? item.options?.some(o => o.votes.includes(currentUser.id)) : false;
-            const totalVotes = item.options?.reduce((acc, o) => acc + o.votes.length, 0) || 0;
-            return (
-              <div key={item.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
-                <div className="flex justify-between items-start mb-2"><span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${item.type === 'poll' ? 'bg-rose-500/20 text-rose-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{item.type === 'poll' ? 'Sondage' : 'Info'}</span><span className="text-[8px] text-slate-500 font-mono">{new Date(item.date).toLocaleDateString('fr-FR')}</span></div>
-                <h4 className="font-bold text-white text-sm mb-1">{item.title}</h4>
-                {item.type === 'info' && <p className="text-xs text-slate-400 whitespace-pre-wrap">{item.content}</p>}
-                {item.type === 'poll' && item.options && (
-                  <div className="mt-3 space-y-2">
-                    {item.options.map((opt, idx) => {
-                      const pct = totalVotes === 0 ? 0 : Math.round((opt.votes.length / totalVotes) * 100); const myVote = currentUser && opt.votes.includes(currentUser.id);
-                      return (
-                        <div key={idx} className="relative bg-slate-950 border border-slate-800 rounded overflow-hidden">
-                          {hasVoted ? (<div className="w-full flex items-center justify-between p-2 relative z-10 text-xs font-bold"><span className={myVote ? 'text-amber-500' : 'text-slate-300'}>{opt.text} {myVote && '✓'}</span><span className="text-slate-500">{pct}%</span><div className="absolute left-0 top-0 bottom-0 bg-rose-500/20 -z-10 transition-all" style={{width: `${pct}%`}}></div></div>) : (<button onClick={() => handleVote(item.id, idx)} className="w-full text-left p-2 text-xs text-slate-300 hover:bg-slate-800 transition-colors font-medium">{opt.text}</button>)}
-                        </div>
-                      );
-                    })}
-                    {hasVoted && <p className="text-[9px] text-slate-500 text-right mt-1">{totalVotes} vote(s)</p>}
-                  </div>
-                )}
-                <div className="mt-3 pt-2 border-t border-slate-800/50 flex items-center justify-end"><span className="text-[8px] text-slate-600 uppercase tracking-widest">Par {item.author}</span></div>
-              </div>
-            );
-          })}
+    <div className="w-full min-h-screen pb-32 p-4">
+      <div className="max-w-5xl mx-auto space-y-6">
+        
+        <div>
+          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Accueil</h2>
+          <span className="text-[10px] text-cyan-500 font-mono uppercase tracking-widest leading-none">Quartier Général S.M.G</span>
         </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-10"><Activity className="text-cyan-500 animate-spin"/></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* WIDGET AGENDA */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col">
+              <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center">
+                  <CalendarIcon size={16} className="mr-2 text-cyan-500"/> Prochains Événements
+                </h3>
+              </div>
+              
+              <div className="space-y-3 flex-1">
+                {events.length === 0 ? (
+                  <div className="text-center py-6"><CalendarIcon size={24} className="mx-auto text-slate-700 mb-2"/><p className="text-xs text-slate-500 font-mono">Aucun événement prévu.</p></div>
+                ) : (
+                  events.map(ev => (
+                    <div key={ev.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800/50 relative overflow-hidden group">
+                       <div className="pr-2 mb-1">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border mb-1 ${getTypeColor(ev.type)}`}>{ev.type}</span>
+                        <h4 className="text-slate-200 font-bold text-sm leading-tight truncate">{ev.title}</h4>
+                       </div>
+                       <div className="space-y-1 mt-2 pt-2 border-t border-slate-800/50">
+                         <p className="text-[10px] text-slate-400 flex items-center font-mono"><CalendarIcon size={10} className="mr-1.5 text-cyan-500/70" /> {new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                         {ev.time && <p className="text-[10px] text-slate-400 flex items-center font-mono"><Clock size={10} className="mr-1.5 text-cyan-500/70" /> {ev.time}</p>}
+                       </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* WIDGET PALMARES */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col">
+              <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center">
+                  <Trophy size={16} className="mr-2 text-amber-500"/> Mur des Champions
+                </h3>
+              </div>
+              
+              <div className="space-y-3 flex-1">
+                {palmares.length === 0 ? (
+                  <div className="text-center py-6"><Star size={24} className="mx-auto text-slate-700 mb-2"/><p className="text-xs text-slate-500 font-mono">Aucune médaille enregistrée.</p></div>
+                ) : (
+                  palmares.map(p => (
+                    <div key={p.id} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50 hover:border-slate-700 transition-colors">
+                      <div className="shrink-0 mr-4 flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 shadow-inner">
+                         {p.medal === 'Or' && <Medal size={20} className="text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.6)]" />}
+                         {p.medal === 'Argent' && <Medal size={20} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.6)]" />}
+                         {p.medal === 'Bronze' && <Medal size={20} className="text-amber-700 drop-shadow-[0_0_5px_rgba(180,83,9,0.6)]" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-black text-white uppercase tracking-wider truncate">{p.userName}</h4>
+                        <p className="text-[10px] text-slate-500 font-mono truncate">{p.competitionName}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
       </div>
     </div>
   );
