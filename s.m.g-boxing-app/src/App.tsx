@@ -62,6 +62,7 @@ const AppContent = () => {
           <Route path="/members" element={currentUser ? <Members currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/system" element={currentUser?.role === 'Admin' ? <SystemDashboard /> : <Navigate to="/home" />} />
           <Route path="/tournament" element={currentUser ? <Tournament currentUser={currentUser} /> : <Navigate to="/login" />} />
+          <Route path="/COURSES" element={currentUser ? <COURSES currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/calendar" element={currentUser ? <CalendarPage currentUser={currentUser} /> : <Navigate to="/login" />} />
           <Route path="/timer" element={currentUser ? <TimerPage /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to={currentUser ? "/home" : "/login"} />} />
