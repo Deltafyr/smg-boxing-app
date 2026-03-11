@@ -5,9 +5,38 @@ import { User } from '../../types';
 import FuturisticCard from '../../components/ui/FuturisticCard';
 import { Users, Shield, Trophy, ChevronRight, Activity, Star, Medal, ArrowLeft, Mail, Phone, Calendar, Dumbbell, Search } from 'lucide-react';
 
+const HISTORICAL_PALMARES = [
+  { id: 'h1', competitionName: 'Championnat de France 2026', date: '2026-02-21', userName: 'Méline', medal: 'Or' },
+  { id: 'h2', competitionName: 'Championnat de France 2026', date: '2026-02-21', userName: 'Pauline', medal: 'Bronze' },
+  { id: 'h3', competitionName: 'Championnat de France 2026', date: '2026-02-21', userName: 'Armand', medal: 'Bronze' },
+  { id: 'h4', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Pauline', medal: 'Or' },
+  { id: 'h5', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Méline', medal: 'Or' },
+  { id: 'h6', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Maevan', medal: 'Or' },
+  { id: 'h7', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Armand', medal: 'Or' },
+  { id: 'h8', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Axel', medal: 'Argent' },
+  { id: 'h9', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Benjamin', medal: 'Bronze' },
+  { id: 'h10', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Lucas', medal: 'Bronze' },
+  { id: 'h11', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Elise', medal: 'Bronze' },
+  { id: 'h12', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Nicolas', medal: 'Bronze' },
+  { id: 'h13', competitionName: 'Championnat Régional AURA 2025', date: '2025-11-22', userName: 'Julien', medal: 'Bronze' }
+];
+
+const normalizeName = (str: string) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+
+const matchPalmares = (member: User, p: any) => {
+   if (p.userId && p.userId === member.id) return true;
+   const mName = normalizeName(member.name);
+   const pName = normalizeName(p.userName);
+   if (!mName || !pName) return false;
+   
+   const mWords = mName.split(/\s+/).filter(w => w.length > 2);
+   const pWords = pName.split(/\s+/).filter(w => w.length > 2);
+   
+   return mWords.some(mw => pWords.some(pw => mw === pw || pw.includes(mw) || mw.includes(pw)));
+};
+
 const calculateCategoryFFKMDA = (birthYear: number, gender: 'M'|'F' = 'M') => {
-  const currentYear = new Date().getFullYear();
-  const age = currentYear - birthYear;
+  const age = new Date().getFullYear() - birthYear;
   if (age <= 9) return `Poussin (${gender})`;
   if (age <= 11) return `Benjamin (${gender})`;
   if (age <= 13) return `Minime (${gender})`;
@@ -25,7 +54,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isAdmin = currentUser?.role === 'Admin';
-  // AJOUT TACTIQUE : Un Coach a le droit de promouvoir un Membre en Coach (ou le rétrograder)
   const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'Coach';
 
   useEffect(() => {
@@ -37,8 +65,15 @@ export default function Members({ currentUser }: { currentUser: User }) {
         setMembers(mList.sort((a, b) => a.name.localeCompare(b.name)));
 
         const pSnap = await getDocs(collection(db, 'palmares'));
-        const pList: any[] = []; pSnap.forEach(d => pList.push({ id: d.id, ...d.data() }));
-        setPalmares(pList);
+        const dbPalmares: any[] = []; pSnap.forEach(d => dbPalmares.push({ id: d.id, ...d.data() }));
+        
+        const merged = [...HISTORICAL_PALMARES];
+        dbPalmares.forEach(dbp => {
+          const exists = merged.find(m => m.userName === dbp.userName && m.competitionName === dbp.competitionName);
+          if (!exists) merged.push(dbp);
+        });
+        
+        setPalmares(merged);
       } catch(e) { console.error(e); }
       setIsLoading(false);
     };
@@ -46,8 +81,10 @@ export default function Members({ currentUser }: { currentUser: User }) {
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    if (!confirm(`Promouvoir ce membre au rang de ${newRole} ?`)) return;
-    
+    if (userId === currentUser.id) {
+      alert("Erreur: Vous ne pouvez pas modifier votre propre niveau d'accès.");
+      return;
+    }
     try {
       await updateDoc(doc(db, 'members', userId), { role: newRole });
       setMembers(members.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
@@ -60,7 +97,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
   const getHighestTitle = (userPalmares: any[]) => {
     if (userPalmares.length === 0) return null;
     let bestWeight = -1; let bestTitle = "";
-
     userPalmares.forEach(p => {
       let weight = 0; let titleName = "";
       const compName = p.competitionName.toLowerCase();
@@ -100,14 +136,9 @@ export default function Members({ currentUser }: { currentUser: User }) {
 
   const filteredMembers = members.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // ==========================================================================
-  // VUE DETAIL : LE DOSSIER COMBATTANT (OVERDRIVE)
-  // ==========================================================================
   if (selectedMember) {
-    const userNames = selectedMember.name.toLowerCase().split(' ');
-    const memberPalmares = palmares.filter(p => 
-      userNames.some(n => p.userName.toLowerCase().includes(n)) || (p.userId && p.userId === selectedMember.id)
-    ).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const memberPalmares = palmares.filter(p => matchPalmares(selectedMember, p))
+                                   .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     const highestTitle = getHighestTitle(memberPalmares);
     const age = getAge(selectedMember.birthDate);
@@ -120,7 +151,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
             <ArrowLeft size={14} className="mr-2"/> Retour à l'Annuaire
           </button>
           
-          {/* CARTE D'IDENTITÉ HERO AVEC AVATAR INITIAL */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative mt-12">
             <div className="h-16 bg-gradient-to-r from-slate-800 via-cyan-900/30 to-slate-800 relative"></div>
             <div className="px-6 pb-6 relative">
@@ -149,7 +179,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
             </div>
           </div>
 
-          {/* GESTION DES DROITS (COACH ET ADMIN PEUVENT VOIR ÇA) */}
           {isStaff && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg animate-fade-in relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -174,7 +203,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
             </div>
           )}
 
-          {/* INFORMATIONS PHYSIOLOGIQUES & CONTACT */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-4 flex items-center">
@@ -206,7 +234,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
             </div>
           </div>
 
-          {/* SECTION PALMARÈS */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
             <h3 className="text-sm font-black text-white uppercase tracking-widest border-b border-slate-800 pb-2 mb-4 flex items-center">
               <Trophy size={16} className="mr-2 text-amber-500"/> Registre des Médailles
@@ -218,8 +245,8 @@ export default function Members({ currentUser }: { currentUser: User }) {
               </div>
             ) : (
               <div className="space-y-3">
-                {memberPalmares.map(p => (
-                  <div key={p.id} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50 hover:border-slate-700 transition-colors">
+                {memberPalmares.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50 hover:border-slate-700 transition-colors">
                     <div className="flex-1 pr-4">
                       <h4 className="text-sm font-bold text-slate-200 leading-tight">{p.competitionName}</h4>
                       <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center"><Calendar size={10} className="mr-1"/> {new Date(p.date).toLocaleDateString('fr-FR')}</p>
@@ -239,9 +266,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
     );
   }
 
-  // ==========================================================================
-  // VUE LISTE : L'ANNUAIRE
-  // ==========================================================================
   return (
     <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto flex flex-col">
@@ -256,7 +280,6 @@ export default function Members({ currentUser }: { currentUser: User }) {
           </div>
         </div>
 
-        {/* BARRE DE RECHERCHE */}
         <div className="relative mb-4">
           <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
           <input 
