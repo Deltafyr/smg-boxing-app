@@ -1,3 +1,4 @@
+// ALBEDO SYNC: 2026-03-11 21:51:34
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon, Users, Trophy, ShieldAlert , BookOpen } from 'lucide-react';
