@@ -1,3 +1,4 @@
+// ALBEDO HEAL: 2026-03-11 21:56:00
 // ALBEDO SYNC: 2026-03-11 21:51:34
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -13,6 +14,8 @@ import Courses from './features/training/Courses';
 import CalendarPage from './features/calendar/Calendar';
 import TimerPage from './features/training/Timer';
 import { User } from './types';
+const COURSES = 'COURSES';
+
 
 const BottomNav = ({ role }: { role: string }) => {
   const navigate = useNavigate(); const location = useLocation();
