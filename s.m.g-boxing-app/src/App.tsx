@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home as HomeIcon, Users, Trophy, ShieldAlert } from 'lucide-react';
+import { Home as HomeIcon, Users, Trophy, ShieldAlert , BookOpen } from 'lucide-react';
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
 import Home from './pages/Home';
@@ -8,6 +8,7 @@ import Members from './features/members/Members';
 import Profile from './features/members/Profile';
 import SystemDashboard from './features/admin/SystemDashboard';
 import Tournament from './features/tournament/Tournament';
+import Courses from './features/training/Courses';
 import CalendarPage from './features/calendar/Calendar';
 import TimerPage from './features/training/Timer';
 import { User } from './types';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, Swords } from 'lucide-react';
+import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, Swords, BookOpen } from 'lucide-react';
 import { User } from '../types';
 
 export default function Dashboard(props: any) {
@@ -21,7 +21,7 @@ export default function Dashboard(props: any) {
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Axel', medal: 'Argent', iconColor: 'text-slate-300', shadow: 'shadow-[0_0_8px_rgba(203,213,225,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Benjamin', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Lucas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Champion Régional AURA 2025', date: '2025-11-22', name: 'Elise', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
+    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Elise', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Nicolas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
     { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Julien', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' }
   ];
@@ -71,6 +71,7 @@ export default function Dashboard(props: any) {
         if (target === 'TIMER' && (text.includes('chrono') || text.includes('timer'))) btn.click();
         if (target === 'AGENDA' && (text.includes('agenda') || text.includes('calend'))) btn.click();
         if (target === 'TOURNAMENT' && (text.includes('arène') || text.includes('tournoi') || text.includes('compét'))) btn.click();
+        if (target === 'COURSES' && (text.includes('cours') || text.includes('planif'))) btn.click();
       });
     }
   };
@@ -98,13 +99,13 @@ export default function Dashboard(props: any) {
              <Bell size={14} className="mr-2" /> Annonces du Club
            </h3>
            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/50 border-l-2 border-l-cyan-500">
-             <p className="text-sm font-bold text-slate-200 mb-1">Système Opérationnel</p>
-             <p className="text-[10px] text-slate-400 leading-relaxed">Bienvenue sur le Cortex de la S.M.G. Défilement corrigé, profils membres intégrés et rôles sécurisés.</p>
+             <p className="text-sm font-bold text-slate-200 mb-1">Mise à jour Tactique</p>
+             <p className="text-[10px] text-slate-400 leading-relaxed">Le nouveau module d'entraînement (Planification / Cours) est désormais actif et accessible à tous les membres.</p>
            </div>
         </div>
 
-        {/* RACCOURCIS RAPIDES (3 BOUTONS) */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* RACCOURCIS RAPIDES (4 BOUTONS) */}
+        <div className="grid grid-cols-2 gap-3">
           <button onClick={() => handleNav('TIMER')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
             <Timer size={24} className="text-rose-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Chrono</span>
@@ -116,6 +117,10 @@ export default function Dashboard(props: any) {
           <button onClick={() => handleNav('TOURNAMENT')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
             <Swords size={24} className="text-amber-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Arène</span>
+          </button>
+          <button onClick={() => handleNav('COURSES')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+            <BookOpen size={24} className="text-emerald-500 mb-2" />
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">Cours / Planif</span>
           </button>
         </div>
 
