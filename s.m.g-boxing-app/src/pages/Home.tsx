@@ -1,50 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Clock, Bell, Timer, Swords, BookOpen } from 'lucide-react';
-import { User } from '../types';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Bell, Timer, Swords, BookOpen, Activity } from 'lucide-react';
+import { User } from '../../types';
 
 export default function Dashboard(props: any) {
   const { currentUser } = props;
   const [showPalmares, setShowPalmares] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
+  const [dbPalmares, setDbPalmares] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isLoadingPalmares, setIsLoadingPalmares] = useState(true);
 
-  const palmaresData = [
-    { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Méline', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
-    { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Pauline', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat de France 2026', date: '2026-02-21', name: 'Armand', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Pauline', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Méline', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Maevan', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Armand', medal: 'Or', iconColor: 'text-yellow-400', shadow: 'shadow-[0_0_8px_rgba(250,204,21,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Axel', medal: 'Argent', iconColor: 'text-slate-300', shadow: 'shadow-[0_0_8px_rgba(203,213,225,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Benjamin', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Lucas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Elise', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Nicolas', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' },
-    { comp: 'Championnat Régional AURA 2025', date: '2025-11-22', name: 'Julien', medal: 'Bronze', iconColor: 'text-amber-700', shadow: 'shadow-[0_0_8px_rgba(180,83,9,0.6)]' }
-  ];
+  // LOGIQUE DE NAVIGATION (Abstraction des props pour compatibilité maximale)
+  const handleNav = (target: string) => {
+    if (props.setView) props.setView(target);
+    else if (props.setCurrentView) props.setCurrentView(target);
+    else if (props.setActiveTab) props.setActiveTab(target);
+    else if (props.setTab) props.setTab(target);
+    else if (props.navigate) props.navigate(target);
+    else if (props.onNavigate) props.onNavigate(target);
+  };
 
   useEffect(() => {
-    const fetchAgenda = async () => {
+    const fetchDashboardData = async () => {
       setIsLoadingEvents(true);
+      setIsLoadingPalmares(true);
       try {
-        const snap = await getDocs(collection(db, 'agenda'));
+        // 1. FETCH AGENDA (Prochains événements)
+        const qAgenda = query(collection(db, 'agenda'), orderBy('date', 'asc'));
+        const snapAgenda = await getDocs(qAgenda);
         const today = new Date();
         today.setHours(0,0,0,0);
-        const loaded: any[] = [];
-        snap.forEach(d => {
+        const loadedEvents: any[] = [];
+        snapAgenda.forEach(d => {
           const data = d.data();
-          const eDate = new Date(data.date);
-          eDate.setHours(0,0,0,0);
-          if (eDate >= today) loaded.push({ id: d.id, ...data });
+          if (new Date(data.date) >= today) loadedEvents.push({ id: d.id, ...data });
         });
-        setEvents(loaded.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 3));
-      } catch(e) { console.error(e); }
+        setEvents(loadedEvents.slice(0, 3));
+
+        // 2. FETCH PALMARES (Les 15 derniers titres du club)
+        // On récupère les médailles archivées lors des tournois
+        const qPalmares = query(collection(db, 'palmares'), orderBy('date', 'desc'), limit(15));
+        const snapPalmares = await getDocs(qPalmares);
+        const loadedPalmares: any[] = [];
+        snapPalmares.forEach(d => loadedPalmares.push({ id: d.id, ...d.data() }));
+        setDbPalmares(loadedPalmares);
+
+      } catch(e) {
+        console.error("[CORTEX ERROR] Echec synchro Dashboard:", e);
+      }
       setIsLoadingEvents(false);
+      setIsLoadingPalmares(false);
     };
-    fetchAgenda();
+
+    fetchDashboardData();
   }, []);
 
   const getTypeColor = (t: string) => {
@@ -57,29 +67,10 @@ export default function Dashboard(props: any) {
     }
   };
 
-  const handleNav = (target: string) => {
-    if (props.setView) props.setView(target);
-    else if (props.setCurrentView) props.setCurrentView(target);
-    else if (props.setActiveTab) props.setActiveTab(target);
-    else if (props.setTab) props.setTab(target);
-    else if (props.navigate) props.navigate(target);
-    else if (props.onNavigate) props.onNavigate(target);
-    else {
-      const navButtons = document.querySelectorAll('nav button, div[class*="bottom"] button');
-      navButtons.forEach((btn: any) => {
-        const text = btn.innerText.toLowerCase();
-        if (target === 'TIMER' && (text.includes('chrono') || text.includes('timer'))) btn.click();
-        if (target === 'AGENDA' && (text.includes('agenda') || text.includes('calend'))) btn.click();
-        if (target === 'TOURNAMENT' && (text.includes('arène') || text.includes('tournoi') || text.includes('compét'))) btn.click();
-        if (target === 'COURSES' && (text.includes('cours') || text.includes('planif'))) btn.click();
-      });
-    }
-  };
-
   return (
     <div style={{ height: '100vh', overflowY: 'auto', paddingBottom: '150px' }} className="w-full px-4 pt-4">
       <div className="max-w-lg mx-auto space-y-6">
-        
+
         {/* HEADER */}
         <div className="flex justify-between items-center bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
           <div>
@@ -96,93 +87,92 @@ export default function Dashboard(props: any) {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg relative overflow-hidden">
            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
            <h3 className="text-xs font-black text-cyan-500 uppercase tracking-widest flex items-center mb-3">
-             <Bell size={14} className="mr-2" /> Annonces du Club
+             <Bell size={14} className="mr-2" /> Flash Infos
            </h3>
            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/50 border-l-2 border-l-cyan-500">
-             <p className="text-sm font-bold text-slate-200 mb-1">Mise à jour Tactique</p>
-             <p className="text-[10px] text-slate-400 leading-relaxed">Le nouveau module d'entraînement (Planification / Cours) est désormais actif et accessible à tous les membres.</p>
+             <p className="text-sm font-bold text-slate-200 mb-1">Système Albedo v43.2</p>
+             <p className="text-[10px] text-slate-400 leading-relaxed">Le Cortex de scanning FFKMDA est désormais piloté par nos serveurs Serverless pour une stabilité maximale.</p>
            </div>
         </div>
 
-        {/* RACCOURCIS RAPIDES (4 BOUTONS) */}
+        {/* RACCOURCIS RAPIDES */}
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => handleNav('TIMER')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+          <button onClick={() => handleNav('TIMER')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors">
             <Timer size={24} className="text-rose-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Chrono</span>
           </button>
-          <button onClick={() => handleNav('AGENDA')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+          <button onClick={() => handleNav('AGENDA')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors">
             <CalendarIcon size={24} className="text-cyan-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Agenda</span>
           </button>
-          <button onClick={() => handleNav('TOURNAMENT')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+          <button onClick={() => handleNav('TOURNAMENT')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors">
             <Swords size={24} className="text-amber-500 mb-2" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Arène</span>
           </button>
-          <button onClick={() => handleNav('COURSES')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors focus:outline-none">
+          <button onClick={() => handleNav('COURSES')} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-lg hover:bg-slate-800 transition-colors">
             <BookOpen size={24} className="text-emerald-500 mb-2" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Cours / Planif</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">Cours</span>
           </button>
         </div>
 
         {/* WIDGET AGENDA */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center mb-4 border-b border-slate-800 pb-2">
-            <CalendarIcon size={14} className="mr-2" /> Prochains Événements
+            <CalendarIcon size={14} className="mr-2" /> Agenda Live
           </h3>
           <div className="space-y-3">
             {isLoadingEvents ? (
-               <p className="text-center text-cyan-500 text-[10px] font-mono animate-pulse py-4">Chargement...</p>
+               <Activity className="text-cyan-500 animate-spin mx-auto py-2" size={20} />
             ) : events.length === 0 ? (
-               <p className="text-center text-slate-500 text-[10px] font-mono py-4">Aucun événement prévu.</p>
+               <p className="text-center text-slate-500 text-[10px] font-mono py-2">Aucun événement.</p>
             ) : (
               events.map(ev => (
-                <div key={ev.id} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50">
-                   <div>
-                     <span className={`text-[8px] font-black uppercase border px-1.5 py-0.5 rounded ${getTypeColor(ev.type)}`}>{ev.type}</span>
-                     <h4 className="text-xs font-bold text-white mt-1.5">{ev.title}</h4>
-                     <p className="text-[9px] text-slate-500 font-mono mt-0.5 flex items-center"><CalendarIcon size={8} className="mr-1"/> {new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} {ev.time && `• ${ev.time}`}</p>
-                   </div>
+                <div key={ev.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800/50">
+                   <span className={`text-[8px] font-black uppercase border px-1.5 py-0.5 rounded ${getTypeColor(ev.type)}`}>{ev.type}</span>
+                   <h4 className="text-xs font-bold text-white mt-1.5">{ev.title}</h4>
+                   <p className="text-[9px] text-slate-500 font-mono mt-0.5">{new Date(ev.date).toLocaleDateString('fr-FR')} {ev.time && `• ${ev.time}`}</p>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* BOUTON PALMARÈS */}
-        <button 
+        {/* ACCORDÉON PALMARÈS DYNAMIQUE */}
+        <button
           onClick={() => setShowPalmares(!showPalmares)}
-          className={`w-full p-4 rounded-xl border flex items-center justify-between transition-all shadow-lg focus:outline-none ${showPalmares ? 'bg-amber-950 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-white'}`}
+          className={`w-full p-4 rounded-xl border flex items-center justify-between transition-all shadow-lg ${showPalmares ? 'bg-amber-950 border-amber-500/50 text-amber-500' : 'bg-slate-900 border-slate-800 text-white'}`}
         >
           <div className="flex items-center font-black uppercase tracking-widest text-sm">
-            <Trophy size={18} className="mr-3" />
-            Palmarès du Club
+            <Trophy size={18} className="mr-3" /> Palmarès S.M.G
           </div>
           {showPalmares ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </button>
 
-        {/* LISTE DU PALMARÈS DEROULANTE */}
         {showPalmares && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg animate-fade-in">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-4 flex items-center">
-              <Star size={14} className="mr-2"/> Champions S.M.G
-            </h3>
-            
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-4">Dernières Réussites</h3>
             <div className="space-y-3">
-              {palmaresData.map((p, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50">
-                  <div className="shrink-0 mr-4 flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 shadow-inner">
-                     <Medal size={20} className={`${p.iconColor} ${p.shadow}`} />
+              {isLoadingPalmares ? (
+                <Activity className="text-amber-500 animate-spin mx-auto" size={20} />
+              ) : dbPalmares.length === 0 ? (
+                <p className="text-center text-slate-500 text-[10px] font-mono">Le palmarès est vide.</p>
+              ) : (
+                dbPalmares.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800/50">
+                    <div className="flex items-center">
+                      <Medal size={20} className={`mr-3 ${p.medal === 'Or' ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.4)]' : p.medal === 'Argent' ? 'text-slate-300' : 'text-amber-700'}`} />
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-black text-white uppercase truncate">{p.userName}</h4>
+                        <p className="text-[9px] text-slate-500 font-mono truncate">{p.competitionName}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600">{new Date(p.date).getFullYear()}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-black text-white uppercase tracking-wider truncate">{p.name}</h4>
-                    <p className="text-[10px] text-slate-500 font-mono truncate">{p.comp} • {p.date.split('-')[0]}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
