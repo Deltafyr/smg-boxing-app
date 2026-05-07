@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+// [SYNAS] Chemins d'importation corrigés pour le dossier src/pages/
+import { db } from '../lib/firebase';
 import { Trophy, Medal, Star, ChevronDown, ChevronUp, Calendar as CalendarIcon, Bell, Timer, Swords, BookOpen, Activity } from 'lucide-react';
-import { User } from '../../types';
+import { User } from '../types';
 
 export default function Dashboard(props: any) {
   const { currentUser } = props;
@@ -40,7 +41,6 @@ export default function Dashboard(props: any) {
         setEvents(loadedEvents.slice(0, 3));
 
         // 2. FETCH PALMARES (Les 15 derniers titres du club)
-        // On récupère les médailles archivées lors des tournois
         const qPalmares = query(collection(db, 'palmares'), orderBy('date', 'desc'), limit(15));
         const snapPalmares = await getDocs(qPalmares);
         const loadedPalmares: any[] = [];
